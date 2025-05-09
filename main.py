@@ -53,7 +53,6 @@ def dsmc():
         
         targetState = molGenState.clone()
 
-
         st = NMCS.launch_nmcs(targetState, level=3, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name="NMCS_SMILEGEN")
 
         if st.reached_best_score:

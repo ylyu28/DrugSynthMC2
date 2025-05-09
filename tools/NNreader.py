@@ -19,7 +19,7 @@ class Model:
     @classmethod
     def load_model(cls, export_dir:str):
 
-        bundle = tf.saved_moel.load(export_dir)
+        bundle = tf.saved_model.load(export_dir)
         signatures = bundle.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
 
         input_info = signatures.structured_input_signature[1]['embedding_input']

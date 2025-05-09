@@ -3,8 +3,8 @@ from typing import List, ClassVar, Dict, Set, Tuple, Any
 import os
 import json
 import copy 
-from RDKit import Chem
-from RDKit.Chem import Lipinski
+from rdkit import Chem
+from rdkit.Chem import Lipinski
 from tools.NNreader import Prediction, Model
 import math
 
@@ -72,7 +72,7 @@ with open(ngrams_path, 'r') as f:
     ngrams = json.load(f)
 
 
-@dataclass(frozon=True, eq=True)
+@dataclass(frozen=True, eq=True)
 class Move:
     atom: str
     doubleLink: bool
@@ -491,7 +491,7 @@ class State:
             would_be_made_rigid = []
             return (cycle_length, False, would_be_made_rigid, cycle_length - improper_atoms, bond_cost)
         
-    def make_from_string(s:str) -> State:
+    def make_from_string(s:str):
         """
             
         """
@@ -574,7 +574,7 @@ class State:
         n_hbond_acceptor = Lipinski.NumHAcceptor(mol)
         (num_heavy, num_h) = self.get_mol_counts(self.SMILE)
         n_atoms = num_heavy + num_h
-        molecular_weight = Chem.rdMolDescriptors.CalcExactMolWt(mol)
+        molecular_weight = Chem.Descriptors.MolWt(mol)
         nitro_count = 0
         carbon_count = 0
         oxygen_count = 0
