@@ -3,6 +3,7 @@ from tools.calc import softmaxChoice
 from tools.resultSaver import writeline
 import time
 import random
+import copy
 
 
 class NMCS:
@@ -18,7 +19,7 @@ class NMCS:
     
 
     def playout(self, st: State, heuristic_w): # playout, which employs softmax, used in level=1 nmcs
-        best_state = st.clone()
+        best_state = copy.deepcopy(st)
         best_state_score = 0.0
 
         if State.CONSIDER_NON_TERM or st.terminal():
@@ -41,13 +42,13 @@ class NMCS:
                 sc = st.score()
                 if sc > best_state_score:
                     best_state_score = sc
-                    best_state = st.clone()
+                    best_state = copy.deepcopy(st)
 
         return best_state if State.CONSIDER_NON_TERM else st
     
 
     def nmcs(self, st: State, level, heuristic_w, verbose: bool):
-        best_state = st.clone()
+        best_state = copy.deepcopy(st)
         best_state_score = -1.0
 
         while not st.terminal(): # runs until the state is terminal or no legal moves are left
@@ -58,7 +59,7 @@ class NMCS:
                 if (time.time() - self.start_time) > self.timeout and self.timeout > 0.0:
                     return best_state
                 
-                new_st = st.clone()
+                new_st = copy.deepcopy(st)
                 new_st.play(mv)
                 if level <= 1:
                     new_st = self.playout(new_st, heuristic_w)
@@ -77,7 +78,7 @@ class NMCS:
                     if best_state_score > self.best_yet:
                         self.best_yet = best_state_score
                         elapsed = time.perf_counter() - self.start_time
-                        writeline(str(elapsed)+ " " + str(best_state_score) + "\n", self.registerName.clone())
+                        writeline(str(elapsed)+ " " + str(best_state_score) + "\n", self.registerName)
 
             if State.CONSIDER_NON_TERM: # early termination check
                 if len(best_state.seq) == len(st.seq): # if score not improved in this iteration, consider termination at non_terminal state

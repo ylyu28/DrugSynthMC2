@@ -26,15 +26,15 @@ MIN_RING_LEN = 5
 
 HEURISTIC_MODE = 'ngram' # 'ngram' or 'neural'
 
-@dataclass
-class NA:
-    nextAtom: Dict[str, float]
+# @dataclass
+# class NA:
+#     nextAtom: Dict[str, float]
     
-    def __init__(self, data: Dict[str, float]):
-        self.nextAtom = data
+#     def __init__(self, data: Dict[str, float]):
+#         self.nextAtom = data
     
-    def __repr__(self):
-        return f"NA(nextAtom={self.nextAtom})"
+#     def __repr__(self):
+#         return f"NA(nextAtom={self.nextAtom})"
 
 legal_bonds: frozenset[Tuple[str,str,int]] = frozenset({
     ('C', 'C', 1),
@@ -72,7 +72,7 @@ with open(ngrams_path, 'r') as f:
     ngrams = json.load(f)
 
 
-@dataclass(frozen=True, eq=True)
+@dataclass(eq=True)
 class Move:
     atom: str
     doubleLink: bool
@@ -102,9 +102,6 @@ class State:
         self.target_OtoC_ratio = -1.0
         self.target_NtoC_ratio = -1.0
         self.storedPrior = Prediction(label=[],confidence=[])
-
-    def clone(self):
-        return copy.deepcopy(self)
     
     @classmethod
     def new(cls):
@@ -118,7 +115,7 @@ class State:
             if self.SMILE[len(self.SMILE) - 1] == '(':
                 self.nestingOpenCovalence[-2] -= 1
             else:
-                self.nestingOepnCovalence[-1] -= 1
+                self.nestingOpenCovalence[-1] -= 1
 
         if m.nesting:
             addition = '('
@@ -128,7 +125,7 @@ class State:
 
             if self.open_nesting_ASAP:
                 self.open_nesting_ASAP = False
-                self.nestingCycleToClose.append(len(self.openCycles[self.openCycles] - 1))
+                self.nestingCycleToClose.append(self.openCycles[-1])
             else:
                 self.nestingCycleToClose.append(0)
         
@@ -195,7 +192,7 @@ class State:
         
         self.SMILE.append(addition)
 
-        if len(self.SMILE) > 20: # needs updating
+        if len(self.SMILE) > 50: # to be discussed
             self.finish_ASAP = True
         
         self.seq.append(m)
@@ -214,7 +211,7 @@ class State:
         legal_moves = []
         last_char = self.SMILE[-1]
         second_last = 'x'
-        if len(self.SMILE) > 2:
+        if len(self.SMILE) > 1:
             second_last = self.SMILE[-2]
         
         # checking if there is an open nesting level that could continue afterwards. 
@@ -225,18 +222,19 @@ class State:
             # element in nestingCycleToClose = 0 when the cycle is closed (ie when the cycle number shows its second presence in the smile string), this 0 then popped when nesting closed
             if self.nestingCycleToClose[len(self.nestingOpenCovalence) -1-i] != 0:  # While there is at least one open cycle, there is a possibility that the cycle might be prevented from closing
                 break
-            if self.nestingOepnCovalence[-2-i] != 0: # when the cycle is already closed, if the last open covalence atom has at least one available bond, the molecule has capacity to continue growing
+            if self.nestingOpenCovalence[-2-i] != 0: # when the cycle is already closed, if the last open covalence atom has at least one available bond, the molecule has capacity to continue growing
                 could_prevent_cycle_completion = False
         
         can_play_end_cycle = False
         must_close_cycle = False
 
         # Legal move 1: ring closure (only possible when at least one ring is open)
-        if len(self.openCycles) >= 1: # if at least one ring is open
-            cycle_len, _, _, proper_atoms, bond_cost = self.backtrackCycle(self.SMILE.clone(), str(self.openCycles[-1]))
+        if len(self.openCycles) >= 1 and last_char != '(': 
+        # if len(self.openCycles) >= 1: # if at least one ring is open
+            cycle_len, _, proper_atoms, bond_cost = self.backtrackCycle(self.SMILE.copy(), str(self.openCycles[-1]))
             # bond_cost = valence needed to close the ring
             # if more than one ring is open, we need to make sure the atom at which the current ring is growing has capacity to close current ring + grow previous ring
-            if not self.finish_ASAP or (len(self.oepnCycles) == 1 or self.nestingOpenCovalence[-1] >= 1 + bond_cost): # nestingOpenCovalence[-1] is the atom at which the cycle is growing
+            if not self.finish_ASAP or (len(self.openCycles) == 1 or self.nestingOpenCovalence[-1] >= 1 + bond_cost): # nestingOpenCovalence[-1] is the atom at which the cycle is growing
             
                 if last_char != '=' and not (last_char == '(' and second_last == '='): # only checking last_char and second_last if last_char != '='
                     # last_char != '=': 
@@ -244,8 +242,8 @@ class State:
                     
                     # "Closing a cycle is prohibited if it blocks everything afterwards."
                     if not (
-                        (len(self.openCycles) > 1 and could_prevent_cycle_completion and self.nestingOpenCovalence[-1] <= bond_cost) 
-                    ) and (self.nestingOpenCovalence[-1] >= 1 + bond_cost - 1):
+                        len(self.openCycles) > 1 and could_prevent_cycle_completion and self.nestingOpenCovalence[-1] <= bond_cost
+                        ) and (self.nestingOpenCovalence[-1] >= 1 + bond_cost - 1):
 
                         if cycle_len >= MIN_RING_LEN and proper_atoms >= 4:
                             mv = Move(atom = ' ', doubleLink = False, nesting = False, closeNesting = False, cycle = self.openCycles[-1])
@@ -268,20 +266,19 @@ class State:
                 legal_moves.append(mv)
         
         # again: immediate RING closure as nesting closure is not considered as a legal move when self.nestingCycleToClose[-1] != 0
-        # but i think code is redundant
         if must_close_cycle and self.nestingCycleToClose[-1] != 0:
             return legal_moves
         
         # Legal move 3: open a nesting which is the only legal move when the 'open_nesting_ASAP' flag == True
         # "AIzynthfinder forbids "=(", only "(=" is allowed."
-        if self.nestingOpenCovalence[-1] >= 1:
+        if self.nestingOpenCovalence[-1] >= 1 or last_char == '(':
                 # opening of a nesting, prohibited in finish ASAP
-            if last_char != '(' and last_char != '=' and (not self.finish_ASAP): # or (must_close_cycle and not can_play_end_cycle)):
+            if last_char != '(' and last_char != '=' and (not self.finish_ASAP or (must_close_cycle and not can_play_end_cycle)):
                 mv = Move(atom = ' ', doubleLink = False, nesting = True, closeNesting = False, cycle = 0)
                 legal_moves.append(mv)
                 
             if self.open_nesting_ASAP and (last_char in ATOMS):
-                # if open_nesting_ASAP, we legal_move only includes open nesting
+                # if open_nesting_ASAP, legal_move only includes open nesting
                 mv = Move(atom = ' ', doubleLink = False, nesting = True, closeNesting = False, cycle = 0)
                 return [mv]
             
@@ -304,8 +301,8 @@ class State:
                     # conditions for O, U -> S(=O)(=O), M -> S(=O) # double valence
                     condition2 = (
                         (self.finish_ASAP and last_char != '=' and not could_prevent_cycle_completion) or 
-                        (len(self.openCycle) > 0 and could_prevent_cycle_completion) or
-                        (last_char == '=' and self.nestingCycleTOClose[-1] != 0) or # ie the atom to be added needs capacity to grow the cycle
+                        (len(self.openCycles) > 0 and could_prevent_cycle_completion) or
+                        (last_char == '=' and self.nestingCycleToClose[-1] != 0) or # ie the atom to be added needs capacity to grow the cycle
                         (last_char == '=' and self.open_nesting_ASAP) # the atom to be added needs capacity to open nesting
                     )
 
@@ -321,7 +318,7 @@ class State:
                         if last_char == '=':
                             bondType = 2
 
-                        if legal_bonds.contains((i, prev_atom, bondType)) or legal_bonds.contains((prev_atom, i, bondType)) or i == 'U' or i == 'M' or i == 'L' or i == 'W': 
+                        if ((i, prev_atom, bondType) in legal_bonds) or ((prev_atom, i, bondType) in legal_bonds) or i == 'U' or i == 'M' or i == 'L' or i == 'W': 
                             mv = Move(atom = i, doubleLink = False, nesting = False, closeNesting = False, cycle = 0)
                             legal_moves.append(mv)
 
@@ -335,18 +332,18 @@ class State:
 
         # Legal move 6: opening a cycle
             # "Opening of a cycle, maximum 9."
-            if len(self.openCycles) + len(self.closedCycles) < 9 and last_char != '(' and (last_char not in NUMBERS): # Initially, it stopped at '='
-                mv = Move(atom = ' ', doubleLink = False, nesting = False, closeNesting = False, cycle = len(self.openCycles) + len(self.closedCycles) + 1)
+            if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS): # Initially, it stopped at '='
+                mv = Move(atom = ' ', doubleLink = False, nesting = False, closeNesting = False, cycle = len(self.openCycles) + self.closedCycles + 1)
                 legal_moves.append(mv)
 
         if PRUNING_MOVE_TR >= 0.0:
-            legal_moves_clone = legal_moves.clone()
-            vecbackup = legal_moves.clone()
+            legal_moves_copy = legal_moves.copy()
+            vecbackup = legal_moves.copy()
             legal_moves.clear()
 
-            for mv in legal_moves_clone:
+            for mv in legal_moves_copy:
                 heuri = self.heuristic(mv)
-                if heuri != 0.0 and heuri.exp() > PRUNING_MOVE_TR:
+                if heuri != 0.0 and math.exp(heuri) > PRUNING_MOVE_TR:
                     legal_moves.append(mv)
 
             if len(legal_moves) == 0 and len(vecbackup) > 0:
@@ -362,19 +359,20 @@ class State:
     
     def score(self) -> float: 
         if len(self.openCycles) != 0:
-            print(f"Ring not closed yet")
+            # print(f"Ring not closed yet")
+            # print(self.SMILE)
             return 0.0
         if len(self.nestingOpenCovalence) != 1:
             print(f"Colavence available {self.SMILE!r}") # should never hapen
             return 0.0
         
-        sc = self.lipinskiness(self)
+        sc = self.lipinskiness()
         if sc >= self.BEST_POSSIBLE_SCORE:
             self.reached_best_score = True
         return sc
     
 
-    def backtrackCycle(SMILE: list, last_open_cycle: str) -> tuple:
+    def backtrackCycle(self, SMILE: list, last_open_cycle: str) -> tuple:
         cycle_length = 0
         left_current_nesting_level = 0
         right_current_nesting_level = 0
@@ -382,7 +380,7 @@ class State:
         right_chain = []
         left_chain_id = []
         right_chain_id = []
-        would_be_made_rigid = []
+        # would_be_made_rigid = []
 
         cycle_encountered = False
         improper_atoms = 0
@@ -402,8 +400,8 @@ class State:
                 if SMILE[indice-1] == '=':
                     bond_cost = 2 # the current nesting atom is to be connected to a double bond to close the ring
             
-            if NUMBERS.contains(SMILE[indice]):
-                if active_subcycles.contains(SMILE[indice]):
+            if SMILE[indice] in NUMBERS:
+                if SMILE[indice] in active_subcycles:
                     active_subcycles.pop()
                 else:
                     active_subcycles.append(SMILE[indice])
@@ -422,10 +420,10 @@ class State:
                     if left_current_nesting_level > 0: 
                         left_current_nesting_level = 0
             
-            if ATOMS.contains(SMILE[indice]):
+            if SMILE[indice] in ATOMS:
                 if left_current_nesting_level == 0 and right_current_nesting_level == 0 and cycle_encountered:
-                    chain = right_chain.clone()
-                    chain_id = right_chain_id.clone()
+                    chain = right_chain.copy()
+                    chain_id = right_chain_id.copy()
                     for i in range(len(left_chain)):
                         chain.append(left_chain[-1-i])
                         chain_id.append(left_chain_id[-1-i])
@@ -439,8 +437,8 @@ class State:
                     atom_count = 1
                     for i in range(len(chain)):
                         c = chain[i]
-                        if c == 'i':
-                            would_be_made_rigid.pop()
+                        if c == '=':
+                            # would_be_made_rigid.pop()
 
                             double_count += 1
                             if last_equal < 2:
@@ -450,25 +448,26 @@ class State:
                                 aromatic = False
 
                             last_equal = 0
-                        if ATOMS.contains(c):
+                        if c in ATOMS:
                             last_equal += 1
                             atom_count += 1
-                            would_be_made_rigid.append(chain_id[i])
+                            # would_be_made_rigid.append(chain_id[i])
                     
                     if double_count * 2 < atom_count -1:
                         aromatic = False
                     
-                    if not aromatic:
-                        would_be_made_rigid = []
+                    # if not aromatic:
+                        # would_be_made_rigid = []
                     
-                    return (cycle_length+1, aromatic, would_be_made_rigid, cycle_length - improper_atoms, bond_cost)
+                    # return (cycle_length+1, aromatic, would_be_made_rigid, cycle_length - improper_atoms, bond_cost)
+                    return (cycle_length+1, aromatic, cycle_length - improper_atoms, bond_cost)
                 
                 if left_current_nesting_level == 0 and cycle_encountered:
                     left_chain.append(SMILE[indice])
                     left_chain_id.append(indice)
                     cycle_length += 1
                     if len(active_subcycles) > 0:
-                        improper += 1
+                        improper_atoms += 1
                 
                 if right_current_nesting_level == 0:
                     right_chain.append(SMILE[indice])
@@ -487,9 +486,10 @@ class State:
                     right_chain.append(SMILE[indice])
                     right_chain_id.append(indice)
             
-            print("Error, backtrack cycle should not return here")
-            would_be_made_rigid = []
-            return (cycle_length, False, would_be_made_rigid, cycle_length - improper_atoms, bond_cost)
+        print("Error, backtrack cycle should not return here")
+        print(s)
+        # would_be_made_rigid = []
+        return (cycle_length, False, cycle_length - improper_atoms, bond_cost)
         
     def make_from_string(s:str):
         """
@@ -505,9 +505,9 @@ class State:
                 m.closeNesting = True
             if c == '=':
                 m.doubleLink = True
-            if NUMBERS.contains(c):
+            if c in NUMBERS:
                 m.cycle = int(c)
-            if ATOMS.contains(c):
+            if c in ATOMS:
                 m.atom = c
                 
             st.play(m)
@@ -533,32 +533,32 @@ class State:
                 smile += i
         return smile
 
-    def get_mol_counts(self, SMILE: list) -> tuple:
-        """
-        Input self.SMILE and get the number (heavy atoms) and number (hydrogens) at a tuple
-        """
+    # def get_mol_counts(self, SMILE: list) -> tuple:
+    #     """
+    #     Input self.SMILE and get total number of atoms in the molecule
+    #     """
 
-        smile = self.smile_to_smile(SMILE)
-        mol = Chem.MolFromSmiles(smile)
-        mol = Chem.rdmolops.AddHs(mol)
+    #     smile = self.smile_to_smile(SMILE)
+    #     mol = Chem.MolFromSmiles(smile)
+    #     mol = Chem.rdmolops.AddHs(mol)
+    #     n_atoms = Chem.rdMolDescriptors.CalcNumAtoms(mol)
+    #     return n_atoms
+    
+        # num_h = 0
+        # for a in mol.GetAtoms():
+        #     num_h += Chem.rdchem.GetTotalNumHs(a)
+        # num_heavy = Chem.rdMolDescriptors.CalcNumHeavyAtoms(mol)
+        # return (num_heavy, num_h)
 
-        num_h = 0
-        for a in mol.GetAtoms():
-            num_h += Chem.rdchem.GetTotalNumHs(a)
+    # def ratioH(self, SMILE: list) -> float:
+    #     """
+    #     Input self.SMILE and get the ratio of number (heavy atoms) / number (hydrogens)
 
-        num_heavy = Chem.rdMolDescriptors.CalcNumHeavyAtoms(mol)
+    #     """
 
-        return (num_heavy, num_h)
-
-    def ratioH(self, SMILE: list) -> float:
-        """
-        Input self.SMILE and get the ratio of number (heavy atoms) / number (hydrogens)
-
-        """
-
-        (num_heavy, num_h) = self.get_mol_counts(SMILE)
-        ratioH = num_heavy / num_h
-        return ratioH
+    #     (num_heavy, num_h) = self.get_mol_counts(SMILE)
+    #     ratioH = num_heavy / num_h
+    #     return ratioH
 
 
     def lipinskiness(self) -> float:
@@ -571,10 +571,9 @@ class State:
         mol = Chem.rdmolops.AddHs(mol)
 
         n_hbond_donor = Lipinski.NumHDonors(mol)
-        n_hbond_acceptor = Lipinski.NumHAcceptor(mol)
-        (num_heavy, num_h) = self.get_mol_counts(self.SMILE)
-        n_atoms = num_heavy + num_h
-        molecular_weight = Chem.Descriptors.MolWt(mol)
+        n_hbond_acceptor = Lipinski.NumHAcceptors(mol)
+        n_atoms = Chem.rdMolDescriptors.CalcNumAtoms(mol)
+        molecular_weight = Chem.rdMolDescriptors.CalcExactMolWt(mol)
         nitro_count = 0
         carbon_count = 0
         oxygen_count = 0
@@ -598,10 +597,10 @@ class State:
         lipinski_sc += -max(n_hbond_donor - 5.0, 0.0)/5.0 # highest score (when n_hbond_donor < 5) is 0.0
         # 2nd rule: < 10 hydrogen bond acceptors
         lipinski_sc += -max(n_hbond_acceptor - 10.0, 0.0)/10.0 # highest score (when n_hbond_accptor < 10) is 0.0
-        # 3rd rule: < 500 molecular weight
-        lipinski_sc += -max(molecular_weight-500.0, 0.0)/500.0 # highest score (when molecular_weight < 500) is 0.0
-        # 4th rule: > 20 number of atoms
-        lipinski_sc += min(n_atoms, 20.0)/20.0 # highest score = 1 (when n_atoms > 20)
+        # 3rd rule: < 800 molecular weight
+        lipinski_sc += -max(molecular_weight-800.0, 0.0)/800.0 # highest score (when molecular_weight < 800) is 0.0
+        # 4th rule: > 30 number of atoms
+        lipinski_sc += min(n_atoms, 30.0)/30.0 # highest score = 1 (when n_atoms > 30)
         # 5th rule: < 70 number of atoms
         lipinski_sc += -max(n_atoms - 70.0, 0.0)/70.0 # highest score = 0 (when n_atoms < 70)
         # 6th rule: max score = 1 (at least one rigid bond for every 6 atoms)
@@ -627,7 +626,7 @@ class State:
             mv = '='
         if m.nesting:
             mv = '('
-        if m.closenesting:
+        if m.closeNesting:
             mv = ')'
         if m.cycle !=0:
             mv = 'X'
@@ -646,7 +645,7 @@ class State:
             if len(self.storedPrior.label) == 0:
                 self.storedPrior = prior.predict(SMILEstr)
         
-            pred = self.stroedPrior.clone()
+            pred = self.stroedPrior.copy()
 
             val = ["\n", "&", "C", "(", ")", "1", "=", "2", "O", "N", "3", "F", "[C@@H]", "#", "S", "L", "[O-]", "[C@H]", "[NH+]", "[C@]", "Br", "/", "[NH3+]", "W", "4", "[NH2+]", "U", "[C@@]", "[N+]", "\\", "M", "[S@]", "5", "[N-]", "[S@@]", "[S-]", "6", "7", "I", "P", "[OH+]", "[NH-]", "[P@@H]", "[P@@]", "[PH2]", "[P@]", "[P+]", "[S+]", "[O+]", "[CH2-]", "[CH-]", "[SH+]", "[PH+]", "[PH]", "8", "[S@@+]"]
 
@@ -673,8 +672,8 @@ class State:
                 
         if HEURISTIC_MODE == "ngram":
             s = ""
-            if mv == 'X' and self.openCycles.contains(m.cycle):
-                (si, _, _, _, _, _) = self.backtrackCycle(self.SMILE.clone(),m.cycle)
+            if mv == 'X' and (m.cycle in self.openCycles):
+                (si, _, _, _) = self.backtrackCycle(self.SMILE.copy(),str(m.cycle))
                 if si == 5:
                     return math.log(0.595046/(0.595046+1.958514+0.053870))
                 if si == 6:
@@ -684,16 +683,16 @@ class State:
             
             for i in range(NGRAM_LEN):
                 if len(self.SMILE) > NGRAM_LEN -i -1:
-                    if self.SMILE[-i] in NUMBERS:
+                    if self.SMILE[-(NGRAM_LEN-i)] in NUMBERS:
                         s += 'X'
                     else:
-                        s += self.SMILE[-i]
+                        s += self.SMILE[-(NGRAM_LEN-i)]
 
             key = ngrams.get(s)
             if key is None:
                 return 0.0
             
-            ret = key.nextAtom.get(mv)
+            ret = key.get(mv)
             if ret is None:
                 return 0.0
             
