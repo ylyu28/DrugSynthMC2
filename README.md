@@ -1,0 +1,1 @@
+DrugSynthMC2 (dsmc2) is a python-based project building upon the preliminary DrugSynthMC Rust project (M Roucairol, 2024) that generates small molecules using Nested Monte Carlo Tree Search (T Cazenave,2009).
