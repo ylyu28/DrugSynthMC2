@@ -69,7 +69,7 @@ if __name__ == '__main__':
         
             s2 = st.smile_to_smile(st.SMILE)
             print(f"{s2}")
-            resultSaver.writeline(s2+"\n", "SMILES_generated/testCycles/test2")
+            resultSaver.writeline(s2+"\n", "SMILES_generated/test")
 
 
             carbon_count = 0.0

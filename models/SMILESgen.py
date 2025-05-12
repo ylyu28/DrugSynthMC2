@@ -1,6 +1,5 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, ClassVar, Dict, Set, Tuple, Any
-import os
 import json
 import copy 
 from rdkit import Chem
@@ -192,7 +191,7 @@ class State:
         
         self.SMILE.append(addition)
 
-        if len(self.SMILE) > 50: # to be discussed
+        if len(self.SMILE) > 60: # to be discussed
             self.finish_ASAP = True
         
         self.seq.append(m)
@@ -615,7 +614,9 @@ class State:
         if self.target_OtoC_ratio >= 0.0:
             OtoC_ratio = oxygen_count/carbon_count
             lipinski_sc += -max((self.target_OtoC_ratio - OtoC_ratio).abs() - 0.1, 0.0) # highest score = 0 (when self.target_OtoC_ratio - OtoC_ratio).abs() < 0.1)
-
+        # yali: new rule re ring not closed yet issue
+        if len(self.openCycles) != 0:
+            lipinski_sc += -1
         return lipinski_sc + 1000.0
     
     
