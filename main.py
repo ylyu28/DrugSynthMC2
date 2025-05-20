@@ -5,6 +5,7 @@ from methods import NMCS
 import copy 
 
 if __name__ == '__main__':
+    print("Start running!")
     molGenState = SMILESgen.State.new()
 
     if False:
@@ -37,8 +38,9 @@ if __name__ == '__main__':
     molecule_count = 0
 
     start_time = time.perf_counter()
+    print(f"Start time: {start_time}")
 
-    while molecule_count < 1000:
+    while molecule_count < 1:
 
         OtoC_diff = 0.0
         for i in range(len(FDA_OtoC_ratio)):

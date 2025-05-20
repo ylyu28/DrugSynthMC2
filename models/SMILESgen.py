@@ -6,6 +6,7 @@ from rdkit import Chem
 from rdkit.Chem import Lipinski
 from tools.NNreader import Prediction, Model
 import math
+from docking.docking import docking_score
 
 # S(=O)(=O) -> U
 # S(=O) -> M
@@ -84,7 +85,7 @@ class Move:
 
 class State:
     CONSIDER_NON_TERM: bool = False
-    BEST_POSSIBLE_SCORE: float = 1002.0
+    BEST_POSSIBLE_SCORE: float = 1003.0
 
     def __init__(self):
         self.SMILE = ['C']
@@ -357,18 +358,25 @@ class State:
     
     
     def score(self) -> float: 
-        if len(self.openCycles) != 0:
-            # print(f"Ring not closed yet")
-            # print(self.SMILE)
-            return 0.0
-        if len(self.nestingOpenCovalence) != 1:
-            print(f"Colavence available {self.SMILE!r}") # should never hapen
-            return 0.0
         
-        sc = self.lipinskiness()
-        if sc >= self.BEST_POSSIBLE_SCORE:
-            self.reached_best_score = True
-        return sc
+        # if len(self.openCycles) != 0:
+        #     # print(f"Ring not closed yet")
+        #     # print(str(self.smile_to_smile(self.SMILE)))
+        #     return 0.0
+        # if len(self.nestingOpenCovalence) != 1:
+        #     print(f"Colavence available {self.SMILE!r}") # should never hapen
+        #     return 0.0
+
+    
+        try:
+            affinity_score = docking_score('AR', self.smile_to_smile(self.SMILE), "/Users/yalilyu/Desktop/code/DrugSynthMC2/docking/ar/ar_box.txt",1)[1]
+        except:
+            return 0
+        else:
+            sc = self.lipinskiness() + affinity_score
+            if sc >= self.BEST_POSSIBLE_SCORE:
+                self.reached_best_score = True
+            return sc
     
 
     def backtrackCycle(self, SMILE: list, last_open_cycle: str) -> tuple:
@@ -615,9 +623,10 @@ class State:
             OtoC_ratio = oxygen_count/carbon_count
             lipinski_sc += -max((self.target_OtoC_ratio - OtoC_ratio).abs() - 0.1, 0.0) # highest score = 0 (when self.target_OtoC_ratio - OtoC_ratio).abs() < 0.1)
         # yali: new rule re ring not closed yet issue
-        if len(self.openCycles) != 0:
-            lipinski_sc += -1
-        return lipinski_sc + 1000.0
+        # if len(self.openCycles) != 0:
+        #     lipinski_sc += -2
+        
+        return 1000+lipinski_sc 
     
     
     

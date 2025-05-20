@@ -66,6 +66,7 @@ class NMCS:
                 else:
                     new_st = self.nmcs(new_st, level - 1, heuristic_w, verbose)
                 new_st_score = new_st.score()
+                # writeline(str(st.SMILE)+ " " + str(new_st_score) +"\n", "scoreMonitor" )
 
                 if new_st.reached_best_score:
                     if verbose: 
@@ -79,6 +80,7 @@ class NMCS:
                         self.best_yet = best_state_score
                         elapsed = time.perf_counter() - self.start_time
                         writeline(str(elapsed)+ " " + str(best_state_score) + "\n", self.registerName)
+                        
 
             if State.CONSIDER_NON_TERM: # early termination check
                 if len(best_state.seq) == len(st.seq): # if score not improved in this iteration, consider termination at non_terminal state
@@ -88,6 +90,8 @@ class NMCS:
         
         if State.CONSIDER_NON_TERM:
             return best_state
+        
+        writeline(str(elapsed)+ " " + str(st.SMILE)+ " " + str(new_st_score) +"\n", "scoreMonitor" )
         
         return st
 
