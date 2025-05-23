@@ -25,7 +25,7 @@ class NMCS:
         if State.CONSIDER_NON_TERM or st.terminal():
             best_state_score = best_state.score()
 
-        while not st.terminal():
+        while not st.terminal(): # keep adding 'artificial moves'
             moves = st.legal_moves()
             if len(moves) == 0:
                 break
@@ -36,22 +36,22 @@ class NMCS:
                 i = softmaxChoice(weights) # choosing the move the softmax way
 
             mv = moves[i]
-            st.play(mv)
+            st.play(mv) 
 
             if State.CONSIDER_NON_TERM:
-                sc = st.score()
+                sc = st.score() 
                 if sc > best_state_score:
                     best_state_score = sc
-                    best_state = copy.deepcopy(st)
+                    best_state = copy.deepcopy(st) 
 
-        return best_state if State.CONSIDER_NON_TERM else st
+        return best_state if State.CONSIDER_NON_TERM else st 
     
 
     def nmcs(self, st: State, level, heuristic_w, verbose: bool):
         best_state = copy.deepcopy(st)
         best_state_score = -1.0
 
-        while not st.terminal(): # runs until the state is terminal or no legal moves are left
+        while not st.terminal(): # runs until the state is terminal (no legal moves are left)
             moves = st.legal_moves()
             if len(moves) == 0:
                 break
@@ -79,7 +79,7 @@ class NMCS:
                     if best_state_score > self.best_yet:
                         self.best_yet = best_state_score
                         elapsed = time.perf_counter() - self.start_time
-                        writeline(str(elapsed)+ " " + str(best_state_score) + "\n", self.registerName)
+                        writeline(str(elapsed)+ " " + str(best_state.smile_to_smile(best_state.SMILE)) +" "+ str(best_state_score) + "\n", self.registerName)
                         
 
             if State.CONSIDER_NON_TERM: # early termination check
@@ -87,11 +87,13 @@ class NMCS:
                     break
             
             st.play(best_state.seq[len(st.seq)]) # st updated by playing the next move found (continues until either 'st.terminal()' or 'len(moves)==0' is met)
+            st_smile = st.smile_to_smile(st.SMILE)
+            writeline(str(time.time() - self.start_time)+ " " + st_smile + " " + str(best_state_score) +"\n", "scoreMonitor" )
         
         if State.CONSIDER_NON_TERM:
             return best_state
         
-        writeline(str(elapsed)+ " " + str(st.SMILE)+ " " + str(new_st_score) +"\n", "scoreMonitor" )
+        # writeline(str(time.time()-self.start_time)+ " " + str(st.SMILE)+ " " + str(st.score()) +"\n", "scoreMonitor" )
         
         return st
 
