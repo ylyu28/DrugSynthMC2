@@ -7,6 +7,7 @@ from rdkit.Chem import Lipinski
 from tools.NNreader import Prediction, Model
 import math
 from docking.docking import docking_score
+import re
 
 # S(=O)(=O) -> U
 # S(=O) -> M
@@ -40,6 +41,8 @@ legal_bonds: frozenset[Tuple[str,str,int]] = frozenset({
     ('C', 'C', 1),
     ('C', 'O', 1),
     ('C', 'N', 1),
+    ('C', 'N', 2),
+    ('C', 'N', 3),
     ('C', 'F', 1),
     ('C', 'S', 1),
     ('C', 'P', 1),
@@ -85,7 +88,7 @@ class Move:
 
 class State:
     CONSIDER_NON_TERM: bool = False
-    BEST_POSSIBLE_SCORE: float = 1003.0
+    BEST_POSSIBLE_SCORE: float = 2.924 # at which lipinskiness fulfilled and kd < -9.5
 
     def __init__(self):
         self.SMILE = ['C']
@@ -229,7 +232,7 @@ class State:
         must_close_cycle = False
 
         # Legal move 1: ring closure (only possible when at least one ring is open)
-        if len(self.openCycles) >= 1 and last_char != '(': 
+        if len(self.openCycles) >= 1 : 
         # if len(self.openCycles) >= 1: # if at least one ring is open
             cycle_len, _, proper_atoms, bond_cost = self.backtrackCycle(self.SMILE.copy(), str(self.openCycles[-1]))
             # bond_cost = valence needed to close the ring
@@ -332,7 +335,8 @@ class State:
 
         # Legal move 6: opening a cycle
             # "Opening of a cycle, maximum 9."
-            if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS): # Initially, it stopped at '='
+            # if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS): # Initially, it stopped at '='
+            if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS) and len(self.openCycles) <=2: # May 29, constraining the software from opening a third ring two already open to avoid weirdly concatenated rings
                 mv = Move(atom = ' ', doubleLink = False, nesting = False, closeNesting = False, cycle = len(self.openCycles) + self.closedCycles + 1)
                 legal_moves.append(mv)
 
@@ -356,29 +360,17 @@ class State:
     def terminal(self) -> bool:
         return len(self.legal_moves()) == 0
     
-    
-    def score(self) -> float: 
-        
-        # if len(self.openCycles) != 0:
-        #     # print(f"Ring not closed yet")
-        #     # print(str(self.smile_to_smile(self.SMILE)))
-        #     return 0.0
-        # if len(self.nestingOpenCovalence) != 1:
-        #     print(f"Colavence available {self.SMILE!r}") # should never hapen
-        #     return 0.0
 
     
+    def score(self) -> float:
         try:
-            affinity_score = docking_score('AR', self.smile_to_smile(self.SMILE), "/Users/yalilyu/Desktop/code/DrugSynthMC2/docking/ar/ar_box.txt",1)[1]
+            kd, sc = docking_score('AR', self.smile_to_smile(self.SMILE), "./docking/ar/ar_box.txt",1)
         except:
-            return 0
+            return -1000, 0
         else:
-            sc = self.lipinskiness() + affinity_score
-            if sc >= self.BEST_POSSIBLE_SCORE:
-                self.reached_best_score = True
-            return sc
-    
+            return kd, sc
 
+             
     def backtrackCycle(self, SMILE: list, last_open_cycle: str) -> tuple:
         cycle_length = 0
         left_current_nesting_level = 0
@@ -538,6 +530,9 @@ class State:
                 smile += 'C(F)(F)(F)'
             else:
                 smile += i
+        
+        smile = re.sub(r'\((\d)\)',r'\1',smile) # fixing the (ring_number) pattern
+                
         return smile
 
     # def get_mol_counts(self, SMILE: list) -> tuple:
@@ -626,7 +621,7 @@ class State:
         # if len(self.openCycles) != 0:
         #     lipinski_sc += -2
         
-        return 1000+lipinski_sc 
+        return lipinski_sc 
     
     
     
