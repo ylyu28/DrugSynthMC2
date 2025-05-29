@@ -34,6 +34,8 @@ if __name__ == '__main__':
     NtoC_bins = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]      
     OtoC_ratio = OtoC_bins.copy()
     NtoC_ratio = NtoC_bins.copy()
+    
+    job_name = "l3_r1"
 
     molecule_count = 0
 
@@ -55,9 +57,13 @@ if __name__ == '__main__':
                 target_NtoC_ratio = float(i) / len(FDA_NtoC_ratio)
         
         targetState = copy.deepcopy(molGenState)
+        print(f"launching nmcs {job_name}_m{molecule_count}")
 
-        st = NMCS.launch_nmcs(targetState, level=3, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name="NMCS_SMILEGEN")
 
+        st = NMCS.launch_nmcs(targetState, level=1, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}_m{molecule_count}")
+
+        
+        # resultSaver.writeline(str(time.time()-start_time)+ " " + str(st.SMILE)+ " " + str(st.score()) +"\n", "scoreMonitor" )
         if st.reached_best_score:
             molecule_count += 1
             s = []
@@ -71,7 +77,7 @@ if __name__ == '__main__':
         
             s2 = st.smile_to_smile(st.SMILE)
             print(f"{s2}")
-            resultSaver.writeline(s2+"\n", "SMILES_generated/test")
+            resultSaver.writeline(s2+"\n",job_name)
 
 
             carbon_count = 0.0
