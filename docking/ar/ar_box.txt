@@ -5,4 +5,4 @@ size_x = 15.0
 size_y = 15.0
 size_z = 15.0
 
-exhaustiveness = 8
+exhaustiveness = 32
