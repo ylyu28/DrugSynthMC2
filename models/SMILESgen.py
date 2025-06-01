@@ -366,7 +366,7 @@ class State:
         try:
             kd, sc = docking_score('AR', self.smile_to_smile(self.SMILE), "./docking/ar/ar_box.txt",1)
         except:
-            return -1000, 0
+            return 1000, -1000
         else:
             return kd, sc
 
