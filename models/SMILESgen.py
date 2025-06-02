@@ -41,8 +41,6 @@ legal_bonds: frozenset[Tuple[str,str,int]] = frozenset({
     ('C', 'C', 1),
     ('C', 'O', 1),
     ('C', 'N', 1),
-    ('C', 'N', 2),
-    ('C', 'N', 3),
     ('C', 'F', 1),
     ('C', 'S', 1),
     ('C', 'P', 1),
@@ -364,12 +362,13 @@ class State:
     
     def score(self) -> float:
         try:
-            kd, sc = docking_score('AR', self.smile_to_smile(self.SMILE), "./docking/ar/ar_box.txt",1)
+            kd, aff_sc = docking_score('AR', self.smile_to_smile(self.SMILE), "./docking/ar/ar_box.txt",1)
         except:
-            return 1000, -1000
+            return 1000, -2000
         else:
+            sc = aff_sc + self.lipinskiness()
             return kd, sc
-
+        
              
     def backtrackCycle(self, SMILE: list, last_open_cycle: str) -> tuple:
         cycle_length = 0
