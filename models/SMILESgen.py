@@ -569,6 +569,10 @@ class State:
         """
         smile = self.smile_to_smile(self.SMILE)
         mol = Chem.MolFromSmiles(smile)
+
+        if mol is None:
+            return -2.0
+        
         mol = Chem.rdmolops.AddHs(mol)
 
         n_hbond_donor = Lipinski.NumHDonors(mol)
