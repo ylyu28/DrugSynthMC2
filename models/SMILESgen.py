@@ -367,6 +367,8 @@ class State:
             return 1000, -2000
         else:
             sc = aff_sc + self.lipinskiness()
+            if sc >= self.BEST_POSSIBLE_SCORE:
+                self.reached_best_score = True
             return kd, sc
         
              
