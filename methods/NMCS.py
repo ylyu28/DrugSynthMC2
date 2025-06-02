@@ -9,7 +9,7 @@ import math
 
 class NMCS:
     def __init__(self):
-        self.best_yet = 0.0
+        self.best_yet = -1000.0
         self.timeout = -1.0
         self.registerName= ""
         self.start_time = time.perf_counter()
@@ -21,7 +21,7 @@ class NMCS:
 
     def playout(self, st: State, heuristic_w): # playout, which employs softmax, used in level=1 nmcs
         best_state = copy.deepcopy(st)
-        best_state_score = 0.0
+        best_state_score = -1000
         best_state_kd = 1000
 
         if State.CONSIDER_NON_TERM or st.terminal():
@@ -52,7 +52,7 @@ class NMCS:
 
     def nmcs(self, st: State, level, heuristic_w, verbose: bool):
         best_state = copy.deepcopy(st)
-        best_state_score = -1.0
+        best_state_score = -1000.0
         best_state_kd = 1000
 
         while not st.terminal(): # runs until the state is terminal (no legal moves are left)
@@ -95,9 +95,9 @@ class NMCS:
                         
 
             if State.CONSIDER_NON_TERM: # early termination check
-                if len(best_state.seq) == len(st.seq): # if score not improved in this iteration, consider termination at non_terminal state
+                if len(best_state.seq) == len(st.seq): 
                     break
-            
+
             st.play(best_state.seq[len(st.seq)]) # st updated by playing the next move found (continues until either 'st.terminal()' or 'len(moves)==0' is met)
             st_smile = st.smile_to_smile(st.SMILE)
             writeline(str(time.time() - self.start_time)+ " " + st_smile + " " + str(best_state_score) + " "+ str(best_state_kd) + "\n", f"{self.registerName}_sc" )
