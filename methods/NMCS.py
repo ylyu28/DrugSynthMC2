@@ -70,6 +70,7 @@ class NMCS:
                 else:
                     new_st = self.nmcs(new_st, level - 1, heuristic_w, verbose)
                 new_st_kd, new_st_score = new_st.score()
+
                 writeline(str(new_st.smile_to_smile(new_st.SMILE))+ " " + str(new_st_kd) +"\n", f"{self.registerName}_dock" )
 
                 if new_st.reached_best_score:
@@ -97,6 +98,9 @@ class NMCS:
             if State.CONSIDER_NON_TERM: # early termination check
                 if len(best_state.seq) == len(st.seq): 
                     break
+            
+            if len(best_state.seq) == len(st.seq):
+                break
 
             st.play(best_state.seq[len(st.seq)]) # st updated by playing the next move found (continues until either 'st.terminal()' or 'len(moves)==0' is met)
             st_smile = st.smile_to_smile(st.SMILE)
@@ -104,8 +108,6 @@ class NMCS:
         
         if State.CONSIDER_NON_TERM:
             return best_state
-        
-        # writeline(str(time.time()-self.start_time)+ " " + str(st.SMILE)+ " " + str(st.score()) +"\n", "scoreMonitor" )
         
         return st
 
