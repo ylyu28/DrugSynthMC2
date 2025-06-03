@@ -16,9 +16,11 @@ def prepare_ligand(smile_string):
     molscrub used to assign protonation states and generate ligand conformers
     writer functions in meeko to save the prepared ligand molecules into PDBQT files
     """
-
-    pdbqt_path = "./docking/ligand.pdbqt"
-    ligand_sdf_path = "./docking/ligand.sdf"
+    pdbqt_dir = "./result/pdbqt"
+    os.makedirs(pdbqt_dir, exist_ok=True)
+    
+    pdbqt_path = f"./result/pdbqt/{smile_string}.pdbqt"
+    ligand_sdf_path = f"./result/pdbqt/ligand.sdf"
     
     with open(pdbqt_path, 'w') as file:
     # erase log contents
