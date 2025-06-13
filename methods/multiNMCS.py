@@ -21,7 +21,7 @@ class multiNMCS:
 
     def playout(self, protein, st: State, heuristic_w): # playout, which employs softmax, used in level=1 nmcs
         best_state = copy.deepcopy(st)
-        best_state_score = -1000
+        best_state_lipinskiness = -1000
 
         if State.CONSIDER_NON_TERM or st.terminal():
             best_state_lipinskiness = best_state.lipinskiness()
@@ -42,8 +42,8 @@ class multiNMCS:
             if State.CONSIDER_NON_TERM:
 
                 lp_sc = st.lipinskiness()
-                if lp_sc > best_state_score:
-                    best_state_score = lp_sc
+                if lp_sc > best_state_lipinskiness:
+                    best_state_lipinskiness = lp_sc
                     best_state = copy.deepcopy(st) 
 
         return best_state if State.CONSIDER_NON_TERM else st 
