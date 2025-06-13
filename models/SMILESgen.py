@@ -360,9 +360,9 @@ class State:
     
 
     
-    def score(self) -> float:
+    def score(self, protein) -> float:
         try:
-            kd, aff_sc = docking_score('AR', self.smile_to_smile(self.SMILE), "./docking/ar/ar_box.txt",1)
+            kd, aff_sc = docking_score(protein, self.smile_to_smile(self.SMILE), 1)
         except:
             return 1000, -2000
         else:
