@@ -2,7 +2,7 @@ from pathlib import Path
 
 def writeline(line:str, name:str):
     if name:
-        file_path = Path('result')/f"{name}.txt"
+        file_path = Path('result')/f"{name}.csv"
     try:
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if file_path.exists():

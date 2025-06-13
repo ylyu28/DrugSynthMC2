@@ -35,14 +35,15 @@ if __name__ == '__main__':
     OtoC_ratio = OtoC_bins.copy()
     NtoC_ratio = NtoC_bins.copy()
     
-    job_name = "l3_r1"
+    protein = 'ar'
+    job_name = f"{protein}_l3_r1"
 
     molecule_count = 0
 
     start_time = time.perf_counter()
     print(f"Start time: {start_time}")
 
-    while molecule_count < 1:
+    while molecule_count < 1000:
 
         OtoC_diff = 0.0
         for i in range(len(FDA_OtoC_ratio)):
@@ -57,14 +58,12 @@ if __name__ == '__main__':
                 target_NtoC_ratio = float(i) / len(FDA_NtoC_ratio)
         
         targetState = copy.deepcopy(molGenState)
-        print(f"launching nmcs {job_name}_m{molecule_count}")
+        print(f"launching nmcs {job_name}")
 
-
-        st = NMCS.launch_nmcs(targetState, level=1, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}_m{molecule_count}")
+        st = NMCS.launch_nmcs(protein, targetState, level=3, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
 
         
-        # resultSaver.writeline(str(time.time()-start_time)+ " " + str(st.SMILE)+ " " + str(st.score()) +"\n", "scoreMonitor" )
-        if st.reached_best_score:
+        if st.terminal():
             molecule_count += 1
             s = []
             for c in st.SMILE:

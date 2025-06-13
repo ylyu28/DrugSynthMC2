@@ -10,17 +10,17 @@ import subprocess
 import time
 from tools.resultSaver import writeline
 
-def prepare_ligand(smile_string):
+def prepare_ligand(protein, smile_string):
     print("start preparing ligand")
     """
     molscrub used to assign protonation states and generate ligand conformers
     writer functions in meeko to save the prepared ligand molecules into PDBQT files
     """
-    pdbqt_dir = "./result/pdbqt"
+    pdbqt_dir = f"./result/{protein}_pdbqt"
     os.makedirs(pdbqt_dir, exist_ok=True)
     
-    pdbqt_path = f"./result/pdbqt/{smile_string}.pdbqt"
-    ligand_sdf_path = f"./result/pdbqt/ligand.sdf"
+    pdbqt_path = f"./result/{protein}_pdbqt/{smile_string}.pdbqt"
+    ligand_sdf_path = f"./result/{protein}_pdbqt/{smile_string}.sdf"
     
     with open(pdbqt_path, 'w') as file:
     # erase log contents
@@ -37,11 +37,12 @@ def prepare_ligand(smile_string):
         "--ph_high", "7"
     ], check=True)
     print("sdf ready")
-    subprocess.run([
-        "mk_prepare_ligand.py",
-        "-i", ligand_sdf_path,
-        "-o", pdbqt_path
-    ], check=True)
+    # subprocess.run([
+    #     "mk_prepare_ligand.py",
+    #     "-i", ligand_sdf_path,
+    #     "-o", pdbqt_path
+    # ], check=True)
+    subprocess.run(["obabel", ligand_sdf_path, "-O", pdbqt_path, "-h --partialcharge eem"], check=True)
 
     with open(pdbqt_path, 'r') as f:
         ligand_content = f.read()
@@ -115,14 +116,16 @@ def vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files):
     with open(log_path, 'w') as f:
         pass  # create an empty file
     
+    protein_name = {'ar':'ar_ap', 
+                    'her2': 'her2_kd'}
     args_list = [
         (
         protein,
         ligand_pdbqt_path,
         config_file,
         os.path.join(
-            "./docking/ar/ar_structures",
-            f"{protein}_clusters_{i}.pdbqt"
+            f"./docking/{protein}/{protein}_structures",
+            f"{protein_name[protein]}.pdbqt"
         ),
         i
         )
@@ -178,14 +181,17 @@ def vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files):
 #     best_affinity = vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files)
 #     return best_affinity
 
-def docking_score(protein, smile_string, config_file, num_files):
+def docking_score(protein, smile_string, num_files):
     """
     Docking the generated ligand onto the protein and return the lipinski score as a component of the reward, and erase log
     """
     # start_time = time.time()
-    ligand_pdbqt_path, ligand_pdbqt_content = prepare_ligand(smile_string)
+    config_file = f"docking/{protein}/{protein}_box.txt"
+
+    ligand_pdbqt_path, ligand_pdbqt_content = prepare_ligand(protein, smile_string)
     best_affinity = vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files)
-    affinity_score = 1 - 1 / (1 + math.exp(-(best_affinity +7)))
+    # affinity_score = 1 - 1 / (1 + math.exp(-(best_affinity +7)))
+    affinity_score = 1 - ((best_affinity + 10) ** 2) / 50 * (1 / (1 + math.exp(-(best_affinity + 10))))
     # writeline(str(time.time() - start_time) + " "+ smile_string + " " + str(best_affinity)+"\n","affinityMonitor")
     return best_affinity, affinity_score
 
