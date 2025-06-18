@@ -2,7 +2,7 @@ import numpy as np
 import random
 import math
 
-# Implement softmax, Manhattan distance, distance matrix
+# Implement softmax
 
 def softmaxChoice(l):
     r = random.random()
@@ -18,7 +18,6 @@ def softmaxChoice(l):
     # if no i was returned, move is the last 
     print(f" {r=} {total=} {cumulative_prob=}")
     print(f"List values: {l}")
-    # return len(l)
-    return len(l) - 1 # i think we should use len(l)-1 instead
+    return len(l) - 1 
 
     
