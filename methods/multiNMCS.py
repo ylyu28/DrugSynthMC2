@@ -51,8 +51,7 @@ class multiNMCS:
 
     def nmcs(self, protein, st: State, level, heuristic_w, verbose: bool):
         best_state = copy.deepcopy(st)
-        best_state_score = -1000.0
-        best_state_kd = 1000
+        best_state_kd = 1000.0
         
         while not st.terminal(): # runs until the state is terminal (no legal moves are left)
             moves = st.legal_moves()
@@ -68,30 +67,29 @@ class multiNMCS:
                     new_st = self.playout(protein, new_st, heuristic_w)
                 else:
                     new_st = self.nmcs(protein, new_st, level - 1, heuristic_w, verbose)
-                new_st_kd, new_st_score = new_st.score(protein)
+                new_st_kd = new_st.kd_score(protein)
 
                 writeline(str(new_st.smile_to_smile(new_st.SMILE))+ " " + str(new_st_kd) +"\n", f"{self.registerName}_dock" )
 
-                if new_st.reached_best_score:
-                    if verbose: 
-                        print(f"Reached best score")
-                        st_smile = st.smile_to_smile(st.SMILE)
-                        # new_st_kd = new_st.kd_score
-                        elapsed = time.perf_counter() - self.start_time
-                        writeline(str(time.time() - self.start_time)+ " " + st_smile + " " + str(new_st_score) + " "+ str(new_st_kd) + "\n", f"{self.registerName}_sc" )
-                    return new_st
+                # if new_st.reached_best_score:
+                #     if verbose: 
+                #         print(f"Reached best score")
+                #         st_smile = st.smile_to_smile(st.SMILE)
+                #         # new_st_kd = new_st.kd_score
+                #         elapsed = time.perf_counter() - self.start_time
+                #         writeline(str(time.time() - self.start_time)+ " " + st_smile + " " + str(new_st_score) + " "+ str(new_st_kd) + "\n", f"{self.registerName}_sc" )
+                #     return new_st
                 
-                if new_st_score > best_state_score: # update best state if new state is better
+                if new_st_kd < best_state_kd: # update best state if new state is better
                     best_state = new_st
                     best_state_kd = new_st_kd
-                    best_state_score = new_st_score
 
-                    if best_state_score > self.best_yet:
-                        self.best_yet = best_state_score
+                    if best_state_kd < self.best_yet:
+                        self.best_yet = best_state_kd
                         # best_affinity_score = str(best_state_score-best_state.lipinskiness())
                         elapsed = time.perf_counter() - self.start_time
-                        print(best_state_score)
-                        writeline(str(elapsed)+ " " + str(best_state.smile_to_smile(best_state.SMILE)) +" "+ str(best_state_score) + " " + str(best_state_kd)+" " + "\n", f"{self.registerName}_local")
+                        
+                        writeline(str(elapsed)+ " " + str(best_state.smile_to_smile(best_state.SMILE)) +" "+ str(best_state.lipinskiness()) + " " + str(best_state_kd)+" " + "\n", f"{self.registerName}_local")
                         
 
             # if State.CONSIDER_NON_TERM: # early termination check
@@ -103,12 +101,12 @@ class multiNMCS:
 
             st.play(best_state.seq[len(st.seq)]) # st updated by playing the next move found (continues until either 'st.terminal()' or 'len(moves)==0' is met)
             st_smile = st.smile_to_smile(st.SMILE)
-            writeline(str(time.time() - self.start_time)+ " " + st_smile + " " + str(best_state_score) + " "+ str(best_state_kd) + "\n", f"{self.registerName}_sc" )
+            writeline(str(time.time() - self.start_time)+ " " + st_smile + " " + str(best_state.lipinskiness()) + " "+ str(best_state_kd) + "\n", f"{self.registerName}_sc" )
         
         if State.CONSIDER_NON_TERM:
             return best_state
         
-        writeline(str(time.time() - self.start_time)+ " " + st.smile_to_smile(st.SMILE) + " " + str(best_state_score) + " "+ str(best_state_kd) + "\n", f"{self.registerName}" )
+        writeline(str(time.time() - self.start_time)+ " " + st.smile_to_smile(st.SMILE) + " " + str(best_state.lipinskiness()) + " "+ str(best_state_kd) + "\n", f"{self.registerName}" )
         return st
 
 def launch_nmcs(protein, init_st: State,level, heuristic_w, verbose, timeout, register_name):
