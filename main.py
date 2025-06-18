@@ -1,7 +1,7 @@
 import time
 from tools import resultSaver
 from models import SMILESgen
-from methods import NMCS
+from methods import multiNMCS
 import copy 
 
 if __name__ == '__main__':
@@ -36,7 +36,9 @@ if __name__ == '__main__':
     NtoC_ratio = NtoC_bins.copy()
     
     protein = 'ar'
-    job_name = f"{protein}_l3_r1"
+    level = 3
+    run = 1
+    job_name = f"{protein}_l{level}_r{run}"
 
     molecule_count = 0
 
@@ -60,7 +62,7 @@ if __name__ == '__main__':
         targetState = copy.deepcopy(molGenState)
         print(f"launching nmcs {job_name}")
 
-        st = NMCS.launch_nmcs(protein, targetState, level=3, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
+        st = multiNMCS.launch_nmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
 
         
         if st.terminal():
@@ -68,12 +70,13 @@ if __name__ == '__main__':
             s = []
             for c in st.SMILE:
                 s.append(c)
-            
+
+            # ---- issue fixed in function smile_to_smile()
             # if len(s) > 3 and s[-1] == ')' and s[-3] == '(':
             #     if s[-2] in ['1','2','3','4','5','6','7','8,','9']:
             #         s.remove(s[-1]) # removes ')'
             #         s.remove(s[-2]) # removes '('
-        
+
             s2 = st.smile_to_smile(st.SMILE)
             print(f"{s2}")
             resultSaver.writeline(s2+"\n",job_name)
