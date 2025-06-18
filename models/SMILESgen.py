@@ -360,16 +360,24 @@ class State:
     
 
     
-    def score(self, protein) -> float:
+    # def score(self, protein) -> float:
+    #     try:
+    #         kd, aff_sc = docking_score(protein, self.smile_to_smile(self.SMILE), 1)
+    #     except:
+    #         return 1000, -2000
+    #     else:
+    #         sc = aff_sc + self.lipinskiness()
+    #         if sc >= self.BEST_POSSIBLE_SCORE:
+    #             self.reached_best_score = True
+    #         return kd, sc
+
+    def kd_score(self, protein) -> float:
         try:
-            kd, aff_sc = docking_score(protein, self.smile_to_smile(self.SMILE), 1)
+            kd = docking_score(protein, self.smile_to_smile(self.SMILE), 1)
         except:
-            return 1000, -2000
+            return 1000
         else:
-            sc = aff_sc + self.lipinskiness()
-            if sc >= self.BEST_POSSIBLE_SCORE:
-                self.reached_best_score = True
-            return kd, sc
+            return kd
         
              
     def backtrackCycle(self, SMILE: list, last_open_cycle: str) -> tuple:
