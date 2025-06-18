@@ -22,12 +22,6 @@ def prepare_ligand(protein, smile_string):
     pdbqt_path = f"./result/{protein}_pdbqt/{smile_string}.pdbqt"
     ligand_sdf_path = f"./result/{protein}_pdbqt/{smile_string}.sdf"
     
-    with open(pdbqt_path, 'w') as file:
-    # erase log contents
-        pass
-    with open(ligand_sdf_path, 'w') as file:
-    # erase log ligand_sdf_path
-        pass
     subprocess.run([
         "scrub.py",
         smile_string,
@@ -97,7 +91,7 @@ def run_vina(args):
     log = f"\n--- Affinity Table for {protein} Cluster {cluster_index} ---\n"
     log += affinities_table
     log += '\n\n'
-    
+
     print(f"Process {os.getpid()} finished docking for cluster {args[-1]}")
     return log
 
@@ -172,6 +166,7 @@ def vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files):
                         affinities.append(affinity_value)
                     except ValueError:
                         pass
+
     time_taken = time.time() -start_time
     print(f"min affinity is {min(affinities)}, multiprocessing time taken {time_taken}")
     return min(affinities) if affinities else None
@@ -181,17 +176,36 @@ def vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files):
 #     best_affinity = vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files)
 #     return best_affinity
 
+# def docking_score(protein, smile_string, num_files):
+#     """
+#     Docking the generated ligand onto the protein and return the lipinski score as a component of the reward
+#     """
+#     # start_time = time.time()
+#     config_file = f"docking/{protein}/{protein}_box.txt"
+
+#     ligand_pdbqt_path, ligand_pdbqt_content = prepare_ligand(protein, smile_string)
+#     best_affinity = vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files)
+#     # affinity_score = 1 - 1 / (1 + math.exp(-(best_affinity +7)))
+#     affinity_score = 1 - ((best_affinity + 10) ** 2) / 50 * (1 / (1 + math.exp(-(best_affinity + 10))))
+#     # writeline(str(time.time() - start_time) + " "+ smile_string + " " + str(best_affinity)+"\n","affinityMonitor")
+#     return best_affinity, affinity_score
+
 def docking_score(protein, smile_string, num_files):
     """
-    Docking the generated ligand onto the protein and return the lipinski score as a component of the reward, and erase log
+    Docking the generated ligand onto the protein and return the lipinski score as a component of the reward
     """
     # start_time = time.time()
     config_file = f"docking/{protein}/{protein}_box.txt"
 
     ligand_pdbqt_path, ligand_pdbqt_content = prepare_ligand(protein, smile_string)
     best_affinity = vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files)
-    # affinity_score = 1 - 1 / (1 + math.exp(-(best_affinity +7)))
-    affinity_score = 1 - ((best_affinity + 10) ** 2) / 50 * (1 / (1 + math.exp(-(best_affinity + 10))))
-    # writeline(str(time.time() - start_time) + " "+ smile_string + " " + str(best_affinity)+"\n","affinityMonitor")
-    return best_affinity, affinity_score
+    
+    ligand_sdf_path = f"./result/{protein}_pdbqt/{smile_string}.sdf"
+    
+    if os.path.exists(ligand_pdbqt_path):
+        os.remove(ligand_pdbqt_path)
 
+    if os.path.exists(ligand_sdf_path):
+        os.remove(ligand_sdf_path)
+
+    return best_affinity
