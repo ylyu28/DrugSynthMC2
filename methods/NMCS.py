@@ -92,7 +92,7 @@ class NMCS:
                         # best_affinity_score = str(best_state_score-best_state.lipinskiness())
                         elapsed = time.perf_counter() - self.start_time
                         print(best_state_score)
-                        writeline(str(elapsed)+ " " + str(best_state.smile_to_smile(best_state.SMILE)) +" "+ str(best_state_score) + " " + str(best_state_kd)+" " + "\n", f"{self.registerName}_local")
+                        # writeline(str(elapsed)+ " " + str(best_state.smile_to_smile(best_state.SMILE)) +" "+ str(best_state_score) + " " + str(best_state_kd)+" " + "\n", f"{self.registerName}_local")
                         
 
             # if State.CONSIDER_NON_TERM: # early termination check
@@ -108,8 +108,8 @@ class NMCS:
         
         if State.CONSIDER_NON_TERM:
             return best_state
-        
-        writeline(str(time.time() - self.start_time)+ " " + st.smile_to_smile(st.SMILE) + " " + str(best_state_score) + " "+ str(best_state_kd) + "\n", f"{self.registerName}" )
+        if best_state_score != 1000.0:
+            writeline(str(time.time() - self.start_time)+ " " + st.smile_to_smile(st.SMILE) + " " + str(best_state_score) + " "+ str(best_state_kd) + "\n", f"{self.registerName}" )
         return st
 
 def launch_nmcs(protein, init_st: State,level, heuristic_w, verbose, timeout, register_name):
