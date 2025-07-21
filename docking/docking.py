@@ -71,6 +71,34 @@ def extract_affinity_table_from_stdout(stdout):
                     table_lines.append(line)
     return '\n'.join(table_lines)
 
+def extract_vinagpu_affinity_table_from_stdout(stdout):
+
+    """
+    Extract only the affinity table block from the Vina output stdout.
+    """
+
+    lines = stdout.splitlines()
+    table_started = False
+    table_lines = []
+
+    for line in lines:
+        if line.strip().startswith("-----+"):
+            table_started = True
+            table_lines.append(line)
+        elif table_started:
+            # The table ends after the separator line with dashes
+            if line.strip().startswith("-----+"):
+                table_lines.append(line)
+            elif line.strip() == '' or line.startswith('#'):
+                continue
+            elif line.startswith('Writing ligand'):
+                # End of table
+                break
+            else:
+                if line.strip() != '':
+                    table_lines.append(line)
+    return '\n'.join(table_lines)
+
 def run_vina(args):
 
     print(f"Process {os.getpid()} starting docking for cluster {args[-1]}")
@@ -95,6 +123,30 @@ def run_vina(args):
     print(f"Process {os.getpid()} finished docking for cluster {args[-1]}")
     return log
 
+def run_vinagpu(args):
+
+    print(f"Process {os.getpid()} starting docking for cluster {args[-1]}")
+
+    protein, ligand_pdbqt_path, config_file, protein_file, cluster_index = args
+    command = [
+    "AutoDock-Vina-GPU",
+    "--receptor", protein_file,
+    "--ligand", ligand_pdbqt_path,
+    "--config", config_file,
+    "--num_modes","1"
+    ]
+
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    stdout = result.stdout
+    affinities_table = extract_vinagpu_affinity_table_from_stdout(stdout)
+    print(affinities_table)
+
+    log = f"\n--- Affinity Table for {protein} Cluster {cluster_index} ---\n"
+    log += affinities_table
+    log += '\n\n'
+
+    print(f"Process {os.getpid()} finished docking for cluster {args[-1]}")
+    return log
 
 
 def vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files):
@@ -103,7 +155,7 @@ def vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files):
     Parallel Docking of ligand to cluster structures of a specified protein using multiprocessing
     and write affinities table to log, then extract the most favorable affinity value.
     """
-    
+      
     start_time = time.time()
     log_path = f'./docking/{protein}.txt'
 
@@ -195,11 +247,14 @@ def docking_score(protein, smile_string, num_files):
     Docking the generated ligand onto the protein and return the lipinski score as a component of the reward
     """
     # start_time = time.time()
+    
     config_file = f"docking/{protein}/{protein}_box.txt"
 
     ligand_pdbqt_path, ligand_pdbqt_content = prepare_ligand(protein, smile_string)
+    print("multiprocessing started")
     best_affinity = vina_multiprocessing(protein, ligand_pdbqt_path, config_file, num_files)
-    
+    print("multiprocessing finished")
+
     ligand_sdf_path = f"./result/{protein}_pdbqt/{smile_string}.sdf"
     
     if os.path.exists(ligand_pdbqt_path):
