@@ -1,13 +1,15 @@
 from dataclasses import dataclass
-from typing import List, ClassVar, Dict, Set, Tuple, Any
+from typing import Tuple
 import json
-import copy 
 from rdkit import Chem
 from rdkit.Chem import Lipinski
-from tools.NNreader import Prediction, Model
+from tools.resultSaver import calc_mast_ngram, load_update_mast
+# from tools.NNreader import Prediction, Model
 import math
 from docking.docking import docking_score
 import re
+import numpy as np
+import rdkit.Chem.BRICS as BRICS
 
 # S(=O)(=O) -> U
 # S(=O) -> M
@@ -25,7 +27,8 @@ MAX_RING_LEN = 7
 
 MIN_RING_LEN = 5
 
-HEURISTIC_MODE = 'ngram' # 'ngram' or 'neural'
+HEURISTIC_MODE = 'mast_ngram' # 'ngram' or 'neural' or 'mast_ngram'
+mast_ngram_len = 10
 
 # @dataclass
 # class NA:
@@ -67,10 +70,13 @@ legal_bonds: frozenset[Tuple[str,str,int]] = frozenset({
 })
 
 
-prior = Model.load_model("Neural/SMILESexplicit_shortcuts")
+# prior = Model.load_model("Neural/SMILESexplicit_shortcuts")
 
-# ngrams: Dict[str, NA] ={}
+
 ngrams_path = "ngrams/ngram_db_app_inv.json"
+
+mast_path = "ngrams/mast.json"
+k_mast = -0.1
 
 with open(ngrams_path, 'r') as f:
     ngrams = json.load(f)
@@ -104,7 +110,7 @@ class State:
         self.finish_ASAP = False
         self.target_OtoC_ratio = -1.0
         self.target_NtoC_ratio = -1.0
-        self.storedPrior = Prediction(label=[],confidence=[])
+        # self.storedPrior = Prediction(label=[],confidence=[])
     
     @classmethod
     def new(cls):
@@ -402,12 +408,49 @@ class State:
 
     def kd_score(self, protein) -> float:
         try:
-            kd = docking_score(protein, self.smile_to_smile(self.SMILE), 1)
+            smiles_str = self.smile_to_smile(self.SMILE)
+            kd = docking_score(protein, smiles_str, 1)
         except:
             return 1000
         else:
+            ngram_list = calc_mast_ngram(mast_ngram_len, smiles_str)
+            load_update_mast(f"{mast_path}", ngram_list, kd)
             return kd
         
+
+
+
+    def frag_kdscore(self, protein, frag_mol):
+
+        try:
+            smiles = self.combinedFragSmiles(frag_mol)
+
+            kd = docking_score(protein, smiles, 1)
+            return kd
+        
+        except Exception as e:
+            print(f"Error generating combined fragment SMILES or docking combined fragment: {e}")
+            return 1000
+
+            
+
+    def combinedFragSmiles(self, frag_mol):
+        try:
+
+            dsmc_frag = self.fragFormatMol(self.SMILE, frag_mol)
+
+            mol = next(BRICS.BRICSBuild(fragments=(dsmc_frag,frag_mol)))
+
+            smiles = Chem.MolToSmiles(mol, kekuleSmiles = True)
+            
+            return smiles
+        
+        except Exception as e:
+            print(f"Error generating combined fragment SMILES: {e}")
+            return None
+
+        
+
              
     def backtrackCycle(self, SMILE: list, last_open_cycle: str) -> tuple:
         cycle_length = 0
@@ -534,7 +577,7 @@ class State:
         """
         st = State.new()
         for c in s:
-            m = Move(atom = ' ', doubleLink = False, nesting = False, closeNesting = False, cycle = 0)
+            m = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = False, closeNesting = False, cycle = 0)
 
             if c == '(':
                 m.nesting = True
@@ -542,10 +585,13 @@ class State:
                 m.closeNesting = True
             if c == '=':
                 m.doubleLink = True
+            if c == '#':
+                m.tripleLink = True
             if c in NUMBERS:
                 m.cycle = int(c)
             if c in ATOMS:
                 m.atom = c
+
                 
             st.play(m)
             
@@ -666,6 +712,7 @@ class State:
         
         return lipinski_sc 
     
+
     
     
     def heuristic(self, m: Move) -> float:
@@ -680,47 +727,50 @@ class State:
             mv = 'X'
         if m.atom != ' ':
             mv = m.atom
+        if m.tripleLink:
+            mv = '#'
 
-        if HEURISTIC_MODE == 'neural':
-            SMILEstring = []
-            for c in self.SMILE:
-                SMILEstring.append(c)
+        # if HEURISTIC_MODE == 'neural':
+        #     SMILEstring = []
+        #     for c in self.SMILE:
+        #         SMILEstring.append(c)
             
-            SMILEstr = []
-            for c in SMILEstring:
-                SMILEstr.append(c)
+        #     SMILEstr = []
+        #     for c in SMILEstring:
+        #         SMILEstr.append(c)
 
-            if len(self.storedPrior.label) == 0:
-                self.storedPrior = prior.predict(SMILEstr)
+        #     if len(self.storedPrior.label) == 0:
+        #         self.storedPrior = prior.predict(SMILEstr)
         
-            pred = self.stroedPrior.copy()
+        #     pred = self.stroedPrior.copy()
 
-            val = ["\n", "&", "C", "(", ")", "1", "=", "2", "O", "N", "3", "F", "[C@@H]", "#", "S", "L", "[O-]", "[C@H]", "[NH+]", "[C@]", "Br", "/", "[NH3+]", "W", "4", "[NH2+]", "U", "[C@@]", "[N+]", "\\", "M", "[S@]", "5", "[N-]", "[S@@]", "[S-]", "6", "7", "I", "P", "[OH+]", "[NH-]", "[P@@H]", "[P@@]", "[PH2]", "[P@]", "[P+]", "[S+]", "[O+]", "[CH2-]", "[CH-]", "[SH+]", "[PH+]", "[PH]", "8", "[S@@+]"]
+        #     val = ["\n", "&", "C", "(", ")", "1", "=", "2", "O", "N", "3", "F", "[C@@H]", "#", "S", "L", "[O-]", "[C@H]", "[NH+]", "[C@]", "Br", "/", "[NH3+]", "W", "4", "[NH2+]", "U", "[C@@]", "[N+]", "\\", "M", "[S@]", "5", "[N-]", "[S@@]", "[S-]", "6", "7", "I", "P", "[OH+]", "[NH-]", "[P@@H]", "[P@@]", "[PH2]", "[P@]", "[P+]", "[S+]", "[O+]", "[CH2-]", "[CH-]", "[SH+]", "[PH+]", "[PH]", "8", "[S@@+]"]
 
-            if mv == 'X':
-                sum_conf = 0
-                for i in range(len(pred.label)):
-                    try:
-                        float(val[pred.label[i]])
-                        sum_conf += float(pred.confidence[i])
-                    except ValueError:
-                        pass
-                return math.log(sum_conf)
+        #     if mv == 'X':
+        #         sum_conf = 0
+        #         for i in range(len(pred.label)):
+        #             try:
+        #                 float(val[pred.label[i]])
+        #                 sum_conf += float(pred.confidence[i])
+        #             except ValueError:
+        #                 pass
+        #         return math.log(sum_conf)
             
-            if mv == m.atom:
-                sum_conf = 0
-                for i in range(len(pred.label)):
-                    if val[pred.label[i]] == str(mv) or val[pred.label[i]] == mv.lower():
-                        sum_conf += float(pred.confidence[i])
-                return math.log(sum_conf)
+        #     if mv == m.atom:
+        #         sum_conf = 0
+        #         for i in range(len(pred.label)):
+        #             if val[pred.label[i]] == str(mv) or val[pred.label[i]] == mv.lower():
+        #                 sum_conf += float(pred.confidence[i])
+        #         return math.log(sum_conf)
             
-            for i in range(len(pred.label)):
-                if val[pred.label[i]] == str(mv):
-                    return math.log(pred.condifence[i])
+        #     for i in range(len(pred.label)):
+        #         if val[pred.label[i]] == str(mv):
+        #             return math.log(pred.condifence[i])
                 
-        if HEURISTIC_MODE == "ngram":
+        if HEURISTIC_MODE == "ngram" or HEURISTIC_MODE == "mast_ngram":
             s = ""
             if mv == 'X' and (m.cycle in self.openCycles):
+                
                 (si, _, _, _) = self.backtrackCycle(self.SMILE.copy(),str(m.cycle))
                 if si == 5:
                     return math.log(0.595046/(0.595046+1.958514+0.053870))
@@ -735,25 +785,51 @@ class State:
                         s += 'X'
                     else:
                         s += self.SMILE[-(NGRAM_LEN-i)]
+                
 
             key = ngrams.get(s)
             if key is None:
                 return 0.0
-            
+
             ret = key.get(mv)
             if ret is None:
                 return 0.0
+
+            if HEURISTIC_MODE == "ngram":
+
+                return math.log(ret)
             
-            return math.log(ret)
+            elif HEURISTIC_MODE == "mast_ngram":
+                try: 
+                    with open(mast_path, 'r') as f:
+                        mast_dict = json.load(f)
+                    
+                except FileNotFoundError:
+                    return math.log(ret)
+                
+                dockings = mast_dict.get(s[-(mast_ngram_len-1):]+mv)
+                if dockings is None or len(dockings) ==0:
+                    return ret
+                
+                ave_dockings = sum(dockings)/len(dockings)
+                return math.log(ret) + k_mast * ave_dockings
+
+
         return 0.0
     
 
-    def soothedScore(self) -> float:
-        return self.score()
-
-
             
-            
+    def fragFormatMol(self, SMILE, frag_mol):
+        env = frag_mol._compenv
+        env_str = f'[{env}*]'
+        smiles = self.smile_to_smile(SMILE)
+        fragformatsmiles = env_str + smiles
+        dsmc_frag = Chem.MolFromSmiles(fragformatsmiles)
+        
+        return dsmc_frag
+
+    
+
 
 
 
