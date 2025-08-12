@@ -1,15 +1,15 @@
 import time
-from tools import resultSaver
-from models import SMILESgen
-from methods import multiNMCS
+from tools import resultSaver 
+from models import SMILESgen_cyanide
+from methods import NMCS
 import copy 
 
 if __name__ == '__main__':
     print("Start running!")
-    molGenState = SMILESgen.State.new()
+    molGenState = SMILESgen_cyanide.State.new()
 
     if False:
-        molGenState = SMILESgen.State.make_from_string("C1=C(CCC")
+        molGenState = SMILESgen_cyanide.State.make_from_string("C1=C(CCC")
 
         print(f"Open covalence: {molGenState.nestingOpenCovalence}")
         print(f"Open nesting ASAP: {molGenState.open_nesting_ASAP}")
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     start_time = time.perf_counter()
     print(f"Start time: {start_time}")
 
-    while molecule_count < 1000:
+    while molecule_count < 1:
 
         OtoC_diff = 0.0
         for i in range(len(FDA_OtoC_ratio)):
@@ -62,11 +62,12 @@ if __name__ == '__main__':
         targetState = copy.deepcopy(molGenState)
         print(f"launching nmcs {job_name}")
 
-        st = multiNMCS.launch_nmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
+        st = NMCS.launch_nmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
 
         
         if st.terminal():
             molecule_count += 1
+            print("terminal!")
             s = []
             for c in st.SMILE:
                 s.append(c)
@@ -79,7 +80,6 @@ if __name__ == '__main__':
 
             s2 = st.smile_to_smile(st.SMILE)
             print(f"{s2}")
-            resultSaver.writeline(s2+"\n",job_name)
 
 
             carbon_count = 0.0
