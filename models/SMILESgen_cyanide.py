@@ -30,15 +30,7 @@ MIN_RING_LEN = 5
 HEURISTIC_MODE = 'mast_ngram' # 'ngram' or 'neural' or 'mast_ngram'
 mast_ngram_len = 10
 
-# @dataclass
-# class NA:
-#     nextAtom: Dict[str, float]
-    
-#     def __init__(self, data: Dict[str, float]):
-#         self.nextAtom = data
-    
-#     def __repr__(self):
-#         return f"NA(nextAtom={self.nextAtom})"
+
 
 legal_bonds: frozenset[Tuple[str,str,int]] = frozenset({
     ('C', 'C', 1),
@@ -711,7 +703,51 @@ class State:
 
         
         return lipinski_sc 
-    
+
+    def frag_lipinskiness(self, combined_smiles) -> float:
+        """
+        Calculate Lipinskiness score for a generated molecule, which is the total score of 9 sub-scores,
+        best possible Lipinskiness score is 2
+        """
+        if not combined_smiles:
+            return -2.0
+        
+        mol = Chem.MolFromSmiles(combined_smiles)
+
+        if mol is None:
+            return -2.0
+        
+        mol = Chem.rdmolops.AddHs(mol)
+
+        n_hbond_donor = Lipinski.NumHDonors(mol)
+        n_hbond_acceptor = Lipinski.NumHAcceptors(mol)
+        n_atoms = Chem.rdMolDescriptors.CalcNumAtoms(mol)
+        molecular_weight = Chem.rdMolDescriptors.CalcExactMolWt(mol)
+        n_rigid_bonds = 0
+        n_rings = Chem.rdMolDescriptors.CalcNumRings(mol)
+        for s in combined_smiles:
+            if s == '=' or s == '#':
+                n_rigid_bonds +=1
+
+        # Calculate lipinski score
+        lipinski_sc = 0
+        # 1st rule: < 5 hydrogen bond donors
+        lipinski_sc += -max(n_hbond_donor - 5.0, 0.0)/5.0 # highest score (when n_hbond_donor < 5) is 0.0
+        # 2nd rule: < 10 hydrogen bond acceptors
+        lipinski_sc += -max(n_hbond_acceptor - 10.0, 0.0)/10.0 # highest score (when n_hbond_accptor < 10) is 0.0
+        # 3rd rule: < 800 molecular weight
+        lipinski_sc += -max(molecular_weight-800.0, 0.0)/800.0 # highest score (when molecular_weight < 800) is 0.0
+        # 4th rule: > 30 number of atoms
+        lipinski_sc += min(n_atoms, 30.0)/30.0 # highest score = 1 (when n_atoms > 30)
+        # 5th rule: < 70 number of atoms
+        lipinski_sc += -max(n_atoms - 70.0, 0.0)/70.0 # highest score = 0 (when n_atoms < 70)
+        # 6th rule: max score = 1 (at least one rigid bond for every 6 atoms)
+        lipinski_sc += min(n_rigid_bonds, n_atoms/6.0)/(n_atoms/6.0)
+        # 7th rule: max score = 0 (when number of rings < 5)
+        lipinski_sc += -max(n_rings - 5.0, 0.0)/5.0
+        # 8th rule: self.target_NtoC_ratio - NtoC_ratio).abs() < 0.1
+
+        return lipinski_sc 
 
     
     
