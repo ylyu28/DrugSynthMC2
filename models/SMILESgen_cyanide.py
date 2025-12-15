@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Tuple
+from dataclasses import dataclass, field
+from typing import Tuple, Optional
 import json
 from rdkit import Chem
 from rdkit.Chem import Lipinski
@@ -10,6 +10,8 @@ from docking.docking import docking_score
 import re
 import numpy as np
 import rdkit.Chem.BRICS as BRICS
+from enum import IntEnum
+
 
 # S(=O)(=O) -> U
 # S(=O) -> M
@@ -27,7 +29,7 @@ MAX_RING_LEN = 7
 
 MIN_RING_LEN = 5
 
-HEURISTIC_MODE = 'mast_ngram' # 'ngram' or 'neural' or 'mast_ngram'
+HEURISTIC_MODE = 'ngram' # 'ngram' or 'neural' or 'mast_ngram'
 mast_ngram_len = 10
 
 
@@ -74,6 +76,16 @@ with open(ngrams_path, 'r') as f:
     ngrams = json.load(f)
 
 
+
+class MoveType(IntEnum):
+    CLOSE_RING = 0
+    CLOSE_BRANCH = 1
+    OPEN_BRANCH = 2
+    ADD_ATOM = 3
+    ADD_BOUBLE_BOND = 4
+    ADD_TRIPLE_BOND = 5
+    OPEN_RING = 6
+
 @dataclass(eq=True)
 class Move:
     atom: str
@@ -82,9 +94,11 @@ class Move:
     nesting: bool
     closeNesting: bool
     cycle: int
+    move_type: Optional[int] = field(default=None, compare=False)
 
     def __hash__(self):
         return hash((self.atom, self.doubleLink, self.tripleLink, self.nesting, self.closeNesting, self.cycle))
+
 
 class State:
     CONSIDER_NON_TERM: bool = False
@@ -213,7 +227,7 @@ class State:
                                                 
     def legal_moves(self) -> list:
         """
-        Defining 6 legal moves: 
+        Defining 7 legal moves: 
         1. closing a ring
         2. closing a nesting
         3. opening a nesting
@@ -260,7 +274,7 @@ class State:
                         ) and (self.nestingOpenCovalence[-1] >= 1 + bond_cost - 1):
 
                         if cycle_len >= MIN_RING_LEN and proper_atoms >= 4:
-                            mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = False, closeNesting = False, cycle = self.openCycles[-1])
+                            mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = False, closeNesting = False, cycle = self.openCycles[-1], move_type = MoveType.CLOSE_RING)
                             if bond_cost == 2:
                                 mv.doubleLink = True
                             legal_moves.append(mv)
@@ -276,7 +290,7 @@ class State:
         # Legal move 2: close a nesting, prohibited when right after a nesting or a double link, or while a cycle is not closed yet
         if len(self.nestingOpenCovalence) != 1 and self.nestingCycleToClose[-1] == 0 and not self.open_nesting_ASAP:
             if last_char != '=' and last_char != '#' and last_char != '(' and not (could_prevent_cycle_completion and len(self.openCycles) >0):
-                mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = False, closeNesting = True, cycle = 0)
+                mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = False, closeNesting = True, cycle = 0, move_type = MoveType.CLOSE_BRANCH)
                 legal_moves.append(mv)
         
         # again: immediate RING closure as nesting closure is not considered as a legal move when self.nestingCycleToClose[-1] != 0
@@ -288,12 +302,12 @@ class State:
         if self.nestingOpenCovalence[-1] >= 1 or last_char == '(':
                 # opening of a nesting, prohibited in finish ASAP
             if last_char != '(' and last_char != '#' and last_char != '=' and (not self.finish_ASAP or (must_close_cycle and not can_play_end_cycle)):
-                mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = True, closeNesting = False, cycle = 0)
+                mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = True, closeNesting = False, cycle = 0, move_type = MoveType.OPEN_BRANCH)
                 legal_moves.append(mv)
                 
             if self.open_nesting_ASAP and (last_char in ATOMS):
                 # if open_nesting_ASAP, legal_move only includes open nesting
-                mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = True, closeNesting = False, cycle = 0)
+                mv = Move(atom = ' ', doubleLink = False, tripleLink=False, nesting = True, closeNesting = False, cycle = 0, move_type = MoveType.OPEN_BRANCH)
                 return [mv]
             
         # Legal move 4: adding an atom
@@ -340,7 +354,7 @@ class State:
                             bondType = 3
 
                         if ((i, prev_atom, bondType) in legal_bonds) or ((prev_atom, i, bondType) in legal_bonds) or i == 'U' or i == 'M' or i == 'L' or i == 'W': 
-                            mv = Move(atom = i, doubleLink = False, tripleLink=False, nesting = False, closeNesting = False, cycle = 0)
+                            mv = Move(atom = i, doubleLink = False, tripleLink=False, nesting = False, closeNesting = False, cycle = 0, move_type = MoveType.ADD_ATOM)
                             legal_moves.append(mv)
 
         # Legal move 5: adding a double bond
@@ -348,21 +362,21 @@ class State:
         if (self.nestingOpenCovalence[-1] >= 2 or (last_char == '(' and self.nestingOpenCovalence[-2] >= 1)) and not self.finish_ASAP:
              # Double link is prohibited after a cycle starts.
             if last_char != '=':
-                mv = Move(atom = ' ', doubleLink = True, tripleLink= False, nesting = False, closeNesting = False, cycle = 0)
+                mv = Move(atom = ' ', doubleLink = True, tripleLink= False, nesting = False, closeNesting = False, cycle = 0, move_type = MoveType.ADD_BOUBLE_BOND)
                 legal_moves.append(mv)
 
         # Legal move 6: adding a triple bond
         if (self.nestingOpenCovalence[-1] >= 3 or (last_char == '(' and self.nestingOpenCovalence[-2] >= 2)) and not self.finish_ASAP:
         # Triple link is prohibited after a cycle starts.
             if last_char != '=' and last_char != '#':
-                mv = Move(atom = ' ', doubleLink = False, tripleLink= True, nesting = False, closeNesting = False, cycle = 0)
+                mv = Move(atom = ' ', doubleLink = False, tripleLink= True, nesting = False, closeNesting = False, cycle = 0, move_type = MoveType.ADD_TRIPLE_BOND)
                 legal_moves.append(mv)
 
         # Legal move 6: opening a cycle
             # "Opening of a cycle, maximum 9."
             # if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS): # Initially, it stopped at '='
             if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS) and len(self.openCycles) <=1: # May 29, constraining the software from opening a third ring two already open to avoid weirdly concatenated rings
-                mv = Move(atom = ' ', doubleLink = False, tripleLink= False, nesting = False, closeNesting = False, cycle = len(self.openCycles) + self.closedCycles + 1)
+                mv = Move(atom = ' ', doubleLink = False, tripleLink= False, nesting = False, closeNesting = False, cycle = len(self.openCycles) + self.closedCycles + 1, move_type = MoveType.OPEN_RING)
                 legal_moves.append(mv)
 
         if PRUNING_MOVE_TR >= 0.0:
@@ -405,8 +419,9 @@ class State:
         except:
             return 1000
         else:
-            ngram_list = calc_mast_ngram(mast_ngram_len, smiles_str)
-            load_update_mast(f"{mast_path}", ngram_list, kd)
+            if HEURISTIC_MODE == 'mast_ngram':
+                ngram_list = calc_mast_ngram(mast_ngram_len, smiles_str)
+                load_update_mast(f"{mast_path}", ngram_list, kd)
             return kd
         
 
@@ -863,14 +878,9 @@ class State:
         dsmc_frag = Chem.MolFromSmiles(fragformatsmiles)
         
         return dsmc_frag
-
     
-
-
-
-
-
-
+    def code(self, m: Move):
+        return m.move_type
 
 
                     
