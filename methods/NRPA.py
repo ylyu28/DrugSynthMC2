@@ -81,22 +81,24 @@ class NRPA:
                 new_st = copy.deepcopy(st)
                 new_st.play(mv)
 
-                if level <= 1:
-                    new_st = self.playout(st, policy)
-                    return new_st
-                else:
-                    new_st = self.nrpa(protein, st, level - 1, polp, initial_level)
-                
-                new_st_lip = new_st.lipinskiness()
-                new_st_kd = new_st.kd_score(protein)
-                writeline(str(new_st.smile_to_smile(new_st.SMILE))+ " " + str(new_st_kd) +"\n", f"{self.registerName}_dock" )
-        
+                for i in range(100):
+   
+                    if level <= 1:
+                        new_st = self.playout(st, policy)
+                        return new_st
+                    else:
+                        new_st = self.nrpa(protein, st, level - 1, polp, initial_level)
+                    
+                    new_st_lip = new_st.lipinskiness()
+                    new_st_kd = new_st.kd_score(protein)
+                    writeline(str(new_st.smile_to_smile(new_st.SMILE))+ " " + str(new_st_kd) +"\n", f"{self.registerName}_dock" )
+            
 
-                if (level <= initial_level -1 and new_st_kd < best_state_kd) or (level == initial_level and new_st_lip > best_state_lip): 
-                    best_state = new_st
-                    best_state_kd = new_st_kd
-                    best_state_lip = new_st_lip
-                    polp = self.adapt(best_state.seq, polp)
+                    if (level <= initial_level -1 and new_st_kd < best_state_kd) or (level == initial_level and new_st_lip > best_state_lip): 
+                        best_state = new_st
+                        best_state_kd = new_st_kd
+                        best_state_lip = new_st_lip
+                        polp = self.adapt(best_state.seq, polp)
 
             if len(best_state.seq) == len(st.seq):
                 break
