@@ -35,20 +35,21 @@ class NRPA:
         return st
 
 
-    def adapt(self, st:State, policy):
+    def adapt(self, sequence, policy):
         """
-        Policy is adapted on the best current seq found
+        Policy is adapted on the best current seq found (initiating a new State to trace the best sequence)
         by increasing the weight of the best actions 
         then descreasing the weights of all the moves proportionally to their probabilities of being played
         """
         alpha = 1
         polp = np.array(policy)
+        st = State.new()
         while not st.terminal():
             moves = st.legal_moves()
             z = 0
             for mv in moves:
                 z = z + math.exp(policy[st.code(mv)] + st.heuristic(mv))
-            move = st.seq[len(st.seq)]
+            move = sequence[len(st.seq)] # move is the legal move chosen 
             polp[st.code(move)] += alpha
 
             for i in range(len(moves)):
@@ -66,7 +67,7 @@ class NRPA:
         best_state_lip = -1000
         best_state_kd = 1000
         
-        pol = np.array(policy)
+        polp = np.array(policy)
 
         while not st.terminal():
 
@@ -84,7 +85,7 @@ class NRPA:
                     new_st = self.playout(st, policy)
                     return new_st
                 else:
-                    new_st = self.nrpa(protein, st, level - 1, pol, initial_level)
+                    new_st = self.nrpa(protein, st, level - 1, polp, initial_level)
                 
                 new_st_lip = new_st.lipinskiness()
                 new_st_kd = new_st.kd_score(protein)
@@ -95,7 +96,7 @@ class NRPA:
                     best_state = new_st
                     best_state_kd = new_st_kd
                     best_state_lip = new_st_lip
-                    pol = self.adapt(best_state, pol)
+                    polp = self.adapt(best_state.seq, polp)
 
             if len(best_state.seq) == len(st.seq):
                 break
@@ -120,7 +121,7 @@ def launch_nrpa(protein, init_st: State, level, timeout, register_name):
     expe.timeout = timeout
     expe.registerName = register_name
 
-    policy = [0] * 7 # initial policy for the seven types of legal moves
+    policy = [0] * 16 # starting policy for the seven types of legal moves
 
     st = expe.nrpa(protein, init_st, level, policy, level)
     return st
