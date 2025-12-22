@@ -51,15 +51,18 @@ class lazyNMCS:
             if len(moves) == 0:
                 break
             lip_scores = [0 for m in moves]
+
             for i in range (len(moves)):
                 mv = moves [i]
+
                 for j in range (mean_playout_count):
                     new_st = copy.deepcopy(st)
                     new_st.play(mv)
                     new_st = self.playout(new_st, heuristic_w)
                     new_st_lip = new_st.lipinskiness()
+                    lip_scores[i] += new_st_lip
 
-                inferior = min(lip_scores)
+            inferior = min(lip_scores)
 
             
             for i in range (len(moves)):
@@ -73,7 +76,7 @@ class lazyNMCS:
                     if level <= 1:
                         new_st = self.playout(new_st, heuristic_w)
                     else:
-                        new_st = self.lnmcs(protein, new_st, level - 1, heuristic_w, verbose, initial_level)
+                        new_st = self.lnmcs(protein, new_st, level - 1, heuristic_w, verbose, initial_level, r_lip, mean_playout_count)
 
                     new_st_lip = new_st.lipinskiness()
 
