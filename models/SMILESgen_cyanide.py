@@ -78,13 +78,27 @@ with open(ngrams_path, 'r') as f:
 
 
 class MoveType(IntEnum):
+    """
+    For NRPA algorithm's adapt purpose
+    """
     CLOSE_RING = 0
     CLOSE_BRANCH = 1
     OPEN_BRANCH = 2
-    ADD_ATOM = 3
-    ADD_BOUBLE_BOND = 4
-    ADD_TRIPLE_BOND = 5
-    OPEN_RING = 6
+    ADD_BOUBLE_BOND = 3
+    ADD_TRIPLE_BOND = 4
+    OPEN_RING = 5
+
+    # --- Specific atom moves (starting at 6) ---
+    ADD_ATOM_C = 6
+    ADD_ATOM_O = 7
+    ADD_ATOM_N = 8
+    ADD_ATOM_F = 9
+    ADD_ATOM_S = 10
+    ADD_ATOM_P = 11
+    ADD_ATOM_U = 12 # S(=O)(=O)
+    ADD_ATOM_M = 13 # S(=O)
+    ADD_ATOM_L = 14 # chlorine
+    ADD_ATOM_W = 15 # C(F)(F)(F)
 
 @dataclass(eq=True)
 class Move:
@@ -227,7 +241,7 @@ class State:
                                                 
     def legal_moves(self) -> list:
         """
-        Defining 7 legal moves: 
+        Defining 7 legal move sets: 
         1. closing a ring
         2. closing a nesting
         3. opening a nesting
@@ -312,12 +326,26 @@ class State:
             
         # Legal move 4: adding an atom
         if self.nestingOpenCovalence[-1] >= 1 or last_char == '(':
+
             if not self.finish_ASAP or last_char in ('=', '(') or len(self.openCycles) > 0 or (self.open_nesting_ASAP and (last_char not in ATOMS)): # "(self.openCycles.len() > 0 && !can_play_end_cycle) removed the clause on the end of cycle to avoid having too many forced cycles of size 5."
                 
                 for i in ['C', 'O', 'F', 'N', 'S', 'U', 'M', 'L', 'W']:
                     # "We also sauté if it's F and we're at the top level and there are still loops to close."
                     # "We prohibit S and O if we are in finish ASAP unless it completes an = and does not prevent finishing the cycles, or if it could block the end of the cycles."
                     
+                    ATOM_MAP = {
+                    'C': MoveType.ADD_ATOM_C,
+                    'O': MoveType.ADD_ATOM_O,
+                    'N': MoveType.ADD_ATOM_N,
+                    'F': MoveType.ADD_ATOM_F,
+                    'S': MoveType.ADD_ATOM_S,
+                    'P': MoveType.ADD_ATOM_P,
+                    'U': MoveType.ADD_ATOM_U,
+                    'M': MoveType.ADD_ATOM_M,
+                    'L': MoveType.ADD_ATOM_L,  
+                    'W': MoveType.ADD_ATOM_W
+                    }
+                    atom_type = ATOM_MAP.get(i)
                     # conditions for F, L -> Cl, W -> C(F)(F)(F) that would prohibit addition of the three atoms # single valence
                     condition1 = (
                         self.nestingCycleToClose[-1] != 0 or # a ring is opened and not closed yet
@@ -354,7 +382,7 @@ class State:
                             bondType = 3
 
                         if ((i, prev_atom, bondType) in legal_bonds) or ((prev_atom, i, bondType) in legal_bonds) or i == 'U' or i == 'M' or i == 'L' or i == 'W': 
-                            mv = Move(atom = i, doubleLink = False, tripleLink=False, nesting = False, closeNesting = False, cycle = 0, move_type = MoveType.ADD_ATOM)
+                            mv = Move(atom = i, doubleLink = False, tripleLink=False, nesting = False, closeNesting = False, cycle = 0, move_type = atom_type)
                             legal_moves.append(mv)
 
         # Legal move 5: adding a double bond
