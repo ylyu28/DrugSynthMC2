@@ -66,8 +66,7 @@ if __name__ == '__main__':
         
         # Depending on the MCTS method used
         # st = lazyNMCS.launch_lnmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, r_lip=r_lip, mean_playout_count=mean_playout_count, register_name=f"{job_name}")
-        st = NRPA.launch_nrpa(protein, targetState, level=level, timeout=0.0, register_name=f"{job_name}")
-
+        st = NRPA.launch_nrpa(protein, level=level, timeout=0.0, register_name=f"{job_name}")
         # st = revNMCS.launch_nmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
         
         if st.terminal():
