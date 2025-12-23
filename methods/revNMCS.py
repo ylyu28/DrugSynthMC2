@@ -14,10 +14,6 @@ class revNMCS:
         self.registerName= ""
         self.start_time = time.perf_counter()
     
-    @classmethod
-    def new(cls):
-        return cls()
-    
 
     def playout(self, st:State, heuristic_w):
         while not st.terminal():

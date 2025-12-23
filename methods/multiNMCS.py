@@ -1,4 +1,4 @@
-from models.SMILESgen import State
+from models.SMILESgen_cyanide import State
 from tools.calc import softmaxChoice
 from tools.resultSaver import writeline
 import time

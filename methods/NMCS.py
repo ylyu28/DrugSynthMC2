@@ -1,4 +1,4 @@
-from models.SMILESgen import State
+from models.SMILESgen_cyanide import State
 from tools.calc import softmaxChoice
 from tools.resultSaver import writeline
 import time
@@ -13,10 +13,6 @@ class NMCS:
         self.timeout = -1.0
         self.registerName= ""
         self.start_time = time.perf_counter()
-    
-    @classmethod
-    def new(cls):
-        return cls()
     
 
     def playout(self, protein, st: State, heuristic_w): # playout, which employs softmax, used in level=1 nmcs
