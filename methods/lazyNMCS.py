@@ -67,7 +67,7 @@ class lazyNMCS:
             
             for i in range (len(moves)):
                 mv = moves[i]
-                if lip_scores[i] > r_lip * inferior: # prune nodes that do not exceed the threshold
+                if lip_scores[i] >= r_lip * inferior: # prune nodes that do not exceed the threshold
                     if (time.time() - self.start_time) > self.timeout and self.timeout > 0.0:
                         return best_state
                 
