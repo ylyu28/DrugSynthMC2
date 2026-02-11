@@ -13,6 +13,9 @@ class NRPA:
         self.timeout = -1.0
         self.registerName= ""
         self.start_time = time.perf_counter()
+        self.num_mol_count = 0
+        self.max_nrpa_mol_count = 80000
+
 
 
     def playout(self, st:State, policy):
@@ -68,6 +71,13 @@ class NRPA:
         best_state_kd = 1000
         best_state = State.new()
         for _ in range(100):
+            self.num_mol_count += 1
+
+            if self.num_mol_count >= self.max_nrpa_mol_count:
+                print(f"NRPA call limit ({self.max_nrpa_mol_count}) reached")
+                writeline(str(policy), f'{self.registerName}_finalPolicy')
+                break
+
             new_state = self.nrpa(protein,r_level-1,policy,init_level)
             new_state_lip = new_state.lipinskiness()
             new_state_kd  = new_state.kd_score(protein)
