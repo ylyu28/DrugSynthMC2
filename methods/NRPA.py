@@ -64,15 +64,15 @@ class NRPA:
     def nrpa(self, protein, r_level, policy, init_level):
         if r_level == 0:
             return self.playout(State.new(),policy)
-        best_lip = -1000
-        best_kd = 1000
+        best_state_lip = -1000
+        best_state_kd = 1000
         best_state = State.new()
         for _ in range(100):
             new_state = self.nrpa(protein,r_level-1,policy,init_level)
             new_state_lip = new_state.lipinskiness()
             new_state_kd  = new_state.kd_score(protein)
             writeline(str(new_state.smile_to_smile(new_state.SMILE))+ " " + str(new_state_kd) +"\n", f"{self.registerName}_dock" )
-            if (r_level <= init_level -1 and new_state_kd < best_kd) or (r_level == init_level and new_state_lip > best_lip):
+            if new_state_kd < best_state_kd or (new_state_kd == best_state_kd and new_state_lip > best_state_lip):
                 best_state_lip = new_state_lip
                 best_state_kd = new_state_kd
                 best_state = new_state
