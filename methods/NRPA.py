@@ -64,37 +64,44 @@ class NRPA:
         
         return polp
 
-    def nrpa(self, protein, r_level, policy, init_level):
+    def nrpa(self, protein, r_level, policy, init_level, alpha_lip=-2, beta_kd=1000):
+
+        self.num_mol_count += 1
+
+        if self.num_mol_count >= self.max_nrpa_mol_count:
+            print(f"NRPA call limit ({self.max_nrpa_mol_count}) reached")
+            return local_best_state
+        
         if r_level == 0:
             return self.playout(State.new(),policy)
-        best_state_lip = -1000
-        best_state_kd = 1000
-        best_state = State.new()
+        
+        local_best_state_lip = -2
+        local_best_state_kd = 1000
+        local_best_state = State.new()
+
         for _ in range(100):
-            self.num_mol_count += 1
+            new_alpha_lip_for_child = max(alpha_lip, local_best_state_lip)
+            new_beta_kd_for_child = min(beta_kd, local_best_state_kd)
 
-            if self.num_mol_count >= self.max_nrpa_mol_count:
-                print(f"NRPA call limit ({self.max_nrpa_mol_count}) reached")
-                writeline(str(policy), f'{self.registerName}_finalPolicy')
-                break
-
-            new_state = self.nrpa(protein,r_level-1,policy,init_level)
+            new_state = self.nrpa(protein,r_level-1,policy,init_level, alpha_lip=new_alpha_lip_for_child, beta_kd=new_beta_kd_for_child)
             new_state_lip = new_state.lipinskiness()
             new_state_kd  = new_state.kd_score(protein)
             writeline(str(new_state.smile_to_smile(new_state.SMILE))+ " " + str(new_state_kd) +"\n", f"{self.registerName}_dock" )
-            if new_state_kd < best_state_kd or (new_state_kd == best_state_kd and new_state_lip > best_state_lip):
-                best_state_lip = new_state_lip
-                best_state_kd = new_state_kd
-                best_state = new_state
-                if best_state_kd != 1000 and best_state_lip != -2:
+
+            if new_state_kd < local_best_state_kd or (new_state_kd == local_best_state_kd and new_state_lip > local_best_state_lip):
+                local_best_state_lip = new_state_lip
+                local_best_state_kd = new_state_kd
+                local_best_state = new_state
+                if local_best_state_kd != 1000 and local_best_state_lip != -2:
                     smile = new_state.smile_to_smile(new_state.SMILE)
-                    writeline(str(time.time() - self.start_time)+ " " + smile + " " + str(best_state_lip) + " "+ str(best_state_kd) + "\n", f"{self.registerName}" )
+                    writeline(str(time.time() - self.start_time)+ " " + smile + " " + str(local_best_state_lip) + " "+ str(local_best_state_kd) + "\n", f"{self.registerName}" )
 
                 # now if bestState gets updated, also update the policy
                 # this updated policy would also be used in the nrpa for the next iteration
-                policy = self.adapt(best_state.seq, policy)
+                policy = self.adapt(local_best_state.seq, policy)
+                writeline(str(policy) + "\n",f'{self.registerName}_Policy')
 
-        return best_state
+        return local_best_state
 
 
     
