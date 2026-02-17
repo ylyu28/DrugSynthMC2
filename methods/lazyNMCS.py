@@ -36,9 +36,8 @@ class lazyNMCS:
 
         Tunable parameters: 
         initial_level: nested levels
-        r_kd: ratio for minimum binding affinity threshold
         r_lip: ratio for minimum drug-likeness threshold
-        mean_playout_count: number of simulated playouts for average score evaluation
+        mean_playout_count: number of simulated playouts for score evaluation
 
         """
         best_state = copy.deepcopy(st)
