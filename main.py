@@ -4,6 +4,7 @@ from models import SMILESgen_cyanide
 from methods import NRPA, revNMCS, lazyNMCS, frag_revNMCS
 import copy 
 
+
 if __name__ == '__main__':
     print("Start running!")
     molGenState = SMILESgen_cyanide.State.new()
@@ -39,7 +40,9 @@ if __name__ == '__main__':
     level = 4
     run = 1
     job_name = f"{protein}_l{level}_r{run}"
-    r_lip = 1.1
+    
+    # --- if lazyNMCS is used
+    r_lip = 1.1 
     mean_playout_count = 12
 
     molecule_count = 0
@@ -64,26 +67,23 @@ if __name__ == '__main__':
         targetState = copy.deepcopy(molGenState)
         print(f"launching nmcs {job_name}")
         
-        # Depending on the MCTS method used
+        # --- Depending on the MCTS method used
         # st = lazyNMCS.launch_lnmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, r_lip=r_lip, mean_playout_count=mean_playout_count, register_name=f"{job_name}")
-        st = NRPA.launch_nrpa(protein, level=level, timeout=0.0, register_name=f"{job_name}")
-        # st = revNMCS.launch_nmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
+        # st = NRPA.launch_nrpa(protein, level=level, timeout=0.0, register_name=f"{job_name}")
+        start_time = time.time()
+        st = revNMCS.launch_nmcs(protein, targetState, level=level, heuristic_w= 1.0, verbose=v, timeout=0.0, register_name=f"{job_name}")
         
-        if st.terminal():
+        if st.terminal(): 
             molecule_count += 1
             print("terminal!")
-            s = []
-            for c in st.SMILE:
-                s.append(c)
 
-            # ---- issue fixed in function smile_to_smile()
-            # if len(s) > 3 and s[-1] == ')' and s[-3] == '(':
-            #     if s[-2] in ['1','2','3','4','5','6','7','8,','9']:
-            #         s.remove(s[-1]) # removes ')'
-            #         s.remove(s[-2]) # removes '('
 
-            s2 = st.smile_to_smile(st.SMILE)
-            print(f"{s2}")
+            final_smile = st.smile_to_smile(st.SMILE)
+            final_lip = st.lipinskiness()
+            final_kd = st.kd_score(protein)
+            elapsed_time = time.time() - start_time
+            resultSaver.writeline(str(elapsed_time)+ " " + final_smile + " " + str(final_lip) + " "+ str(final_kd) + "\n", f"{job_name}_final" )
+
 
 
             carbon_count = 0.0
