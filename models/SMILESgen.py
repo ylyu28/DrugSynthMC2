@@ -4,7 +4,7 @@ import json
 import copy 
 from rdkit import Chem
 from rdkit.Chem import Lipinski
-from tools.NNreader import Prediction, Model
+# from tools.NNreader import Prediction, Model
 import math
 from docking.docking import docking_score
 import re
@@ -25,7 +25,7 @@ MAX_RING_LEN = 7
 
 MIN_RING_LEN = 5
 
-HEURISTIC_MODE = 'ngram' # 'ngram' or 'neural'
+HEURISTIC_MODE = 'ngram' # 'ngram' or 'neural' or 'mast_ngram'
 
 # @dataclass
 # class NA:
@@ -64,7 +64,7 @@ legal_bonds: frozenset[Tuple[str,str,int]] = frozenset({
 })
 
 
-prior = Model.load_model("Neural/SMILESexplicit_shortcuts")
+# prior = Model.load_model("Neural/SMILESexplicit_shortcuts")
 
 # ngrams: Dict[str, NA] ={}
 ngrams_path = "ngrams/fda_ngrams_shortcuts_cycles.json"
@@ -102,7 +102,7 @@ class State:
         self.reached_best_score = False
         self.target_OtoC_ratio = -1.0
         self.target_NtoC_ratio = -1.0
-        self.storedPrior = Prediction(label=[],confidence=[])
+        # self.storedPrior = Prediction(label=[],confidence=[])
     
     @classmethod
     def new(cls):
@@ -334,7 +334,7 @@ class State:
         # Legal move 6: opening a cycle
             # "Opening of a cycle, maximum 9."
             # if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS): # Initially, it stopped at '='
-            if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS) and len(self.openCycles) <=2: # May 29, constraining the software from opening a third ring two already open to avoid weirdly concatenated rings
+            if len(self.openCycles) + self.closedCycles < 9 and last_char != '(' and (last_char not in NUMBERS) and len(self.openCycles) <=1: # May 29, constraining the software from opening a third ring two already open to avoid weirdly concatenated rings
                 mv = Move(atom = ' ', doubleLink = False, nesting = False, closeNesting = False, cycle = len(self.openCycles) + self.closedCycles + 1)
                 legal_moves.append(mv)
 
@@ -372,6 +372,9 @@ class State:
     #         return kd, sc
 
     def kd_score(self, protein) -> float:
+        if self.nestingCycleToClose and any(element != 0 for element in self.nestingCycleToClose):
+            return 1000
+        
         try:
             kd = docking_score(protein, self.smile_to_smile(self.SMILE), 1)
         except:
@@ -630,9 +633,7 @@ class State:
         if self.target_OtoC_ratio >= 0.0:
             OtoC_ratio = oxygen_count/carbon_count
             lipinski_sc += -max((self.target_OtoC_ratio - OtoC_ratio).abs() - 0.1, 0.0) # highest score = 0 (when self.target_OtoC_ratio - OtoC_ratio).abs() < 0.1)
-        # yali: new rule re ring not closed yet issue
-        # if len(self.openCycles) != 0:
-        #     lipinski_sc += -2
+
         
         return lipinski_sc 
     
